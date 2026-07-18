@@ -1,0 +1,108 @@
+spring:
+  config:
+    import: optional:file:.env[.properties],optional:file:backend-java/.env[.properties]
+  application:
+    name: ai-study-hub-backend
+
+  # â”€â”€ Database (SQL Server) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  datasource:
+    url: ${DB_URL:jdbc:sqlserver://${DB_HOST:localhost};instanceName=${DB_INSTANCE:};databaseName=${DB_NAME:AI_StudyHub};encrypt=false;trustServerCertificate=true}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        format_sql: true
+
+  # â”€â”€ Email (dÃ¹ng Gmail SMTP, thay báº±ng env tháº­t) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  # â”€â”€ File upload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  web:
+    resources:
+      add-mappings: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+# â”€â”€ JWT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+jwt:
+  secret: ${JWT_SECRET:}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24h
+  refresh-expiration-ms: ${JWT_REFRESH_MS:604800000} # 7d
+
+# â”€â”€ Python AI Service â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ai:
+  config:
+    master-key: ${AI_CONFIG_MASTER_KEY:}
+    legacy-master-key: ${AI_CONFIG_LEGACY_MASTER_KEY:}
+  python-service:
+    base-url: ${PYTHON_AI_BASE_URL:http://127.0.0.1:8000}
+    internal-api-key: ${PYTHON_INTERNAL_API_KEY:}
+
+# â”€â”€ Supabase Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+supabase:
+  url: ${SUPABASE_URL:https://kwrwaklgyawktmjmdsrt.supabase.co}
+  key: ${SUPABASE_SECRET_KEY:${SUPABASE_SERVICE_ROLE_KEY:${SUPABASE_KEY:}}}
+  bucket: ${SUPABASE_BUCKET:documents}
+
+# Storage provider for newly uploaded documents. Existing files remain with their original provider.
+storage:
+  provider: ${STORAGE_PROVIDER:SUPABASE}
+cloudflare:
+  r2:
+    account-id: ${CLOUDFLARE_R2_ACCOUNT_ID:}
+    access-key-id: ${CLOUDFLARE_R2_ACCESS_KEY_ID:}
+    secret-access-key: ${CLOUDFLARE_R2_SECRET_ACCESS_KEY:}
+    bucket: ${CLOUDFLARE_R2_BUCKET:documents}
+    public-url: ${CLOUDFLARE_R2_PUBLIC_URL:}
+
+# â”€â”€ App settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+document-conversion:
+  office-home: ${DOCUMENT_CONVERSION_OFFICE_HOME:}
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  email-verify-url: ${EMAIL_VERIFY_URL:http://localhost:5173/verify-email}
+  password-reset-url: ${PASSWORD_RESET_URL:http://localhost:5173/reset-password}
+  token:
+    email-verification-minutes: ${EMAIL_VERIFICATION_TOKEN_MINUTES:1440} # 24 hours
+    password-reset-minutes: ${PASSWORD_RESET_TOKEN_MINUTES:15}
+
+logging:
+  level:
+    com.microsoft.sqlserver: WARN
+    org.springframework.jdbc: INFO
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID:}
+
+payos:
+  client-id: ${PAYOS_CLIENT_ID:}
+  api-key: ${PAYOS_API_KEY:}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}

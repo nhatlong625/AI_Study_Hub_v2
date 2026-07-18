@@ -1,0 +1,16 @@
+﻿app:
+  name: AI Study Hub Python RAG API
+  environment: local
+
+rag:
+  chunk_size: 1000
+  chunk_overlap: 150
+  top_k: 3
+
+llm:
+  provider: gemini
+  model: gemini-2.5-flash
+
+vector_db:
+  provider: pending
+  collection: ai_study_hub_documents
