@@ -1,0 +1,27 @@
+IF COL_LENGTH('dbo.DOCUMENT_SHARE', 'shared_to_user_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.DOCUMENT_SHARE ADD shared_to_user_id INT NULL;
+END;
+
+IF COL_LENGTH('dbo.DOCUMENT_SHARE', 'permission') IS NULL
+BEGIN
+    ALTER TABLE dbo.DOCUMENT_SHARE ADD permission NVARCHAR(10) NULL;
+END;
+
+IF OBJECT_ID('dbo.PAYMENT', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PAYMENT
+    (
+        payment_id INT IDENTITY(1,1) PRIMARY KEY,
+        user_id INT NOT NULL,
+        order_code BIGINT NOT NULL UNIQUE,
+        plan_code NVARCHAR(20) NOT NULL,
+        billing_cycle NVARCHAR(10) NOT NULL,
+        amount BIGINT NOT NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_PAYMENT_STATUS DEFAULT 'PENDING',
+        checkout_url NVARCHAR(500) NULL,
+        created_at DATETIME2 NULL CONSTRAINT DF_PAYMENT_CREATED_AT DEFAULT SYSUTCDATETIME(),
+        paid_at DATETIME2 NULL,
+        CONSTRAINT FK_PAYMENT_USER FOREIGN KEY (user_id) REFERENCES dbo.[USER](user_id)
+    );
+END;
