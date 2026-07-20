@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/landing/Navbar";
 import Footer from "../../components/landing/Footer";
 import logoFull from "../../assets/logos/logo.png";
@@ -69,12 +69,24 @@ const AppleIcon = () => (
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Determine where to navigate after successful login
+  const getPostLoginPath = (role) => {
+    const redirect = searchParams.get("redirect");
+    if (redirect === "upgrade") {
+      return normalizeRole(role) === "ADMIN"
+        ? "/admin/dashboard"
+        : "/student/home?upgrade=1";
+    }
+    return getRoleHomePath(role);
+  };
 
   const handleGoogleResponse = async (response) => {
     setMessage("");
@@ -91,7 +103,7 @@ export default function LoginPage() {
       };
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("token", data.token);
-      navigate(getRoleHomePath(data.role), { replace: true });
+      navigate(getPostLoginPath(data.role), { replace: true });
     } catch (error) {
       setMessage(error.message || "Google login failed. Please try again.");
     } finally {
@@ -138,7 +150,7 @@ export default function LoginPage() {
         localStorage.removeItem("rememberMe");
       }
 
-      navigate(getRoleHomePath(data.role), { replace: true });
+      navigate(getPostLoginPath(data.role), { replace: true });
     } catch (error) {
       setMessage(error.message || "Login failed. Please try again.");
     } finally {

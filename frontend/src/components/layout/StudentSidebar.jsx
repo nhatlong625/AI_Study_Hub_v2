@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import logoImg from "../../assets/logos/logo.png";
 import logoIcon from "../../assets/logos/logo-icon.png";
 import { useSidebarContext } from "../../hooks/useSidebar";
@@ -121,9 +121,21 @@ function StudentSidebar({ history = [], onHistoryClick, onClearHistory }) {
   const { collapsed, toggle } = useSidebarContext();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);
+
+  // Auto-open upgrade modal when redirected from PricingPage → Login with ?upgrade=1
+  useEffect(() => {
+    if (searchParams.get("upgrade") === "1") {
+      setShowUpgradeModal(true);
+      // Remove the query param to avoid re-opening on future navigations
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("upgrade");
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [userInfo, setUserInfo] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("user") || "{}");
