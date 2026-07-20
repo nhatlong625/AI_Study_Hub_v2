@@ -368,6 +368,31 @@ function PricingCards({ plans }) {
 function PricingCard({ plan }) {
   const [hovered, setHovered] = useState(false);
 
+  // Determine if user is already logged in
+  const isLoggedIn = (() => {
+    try {
+      const token = localStorage.getItem("token");
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      return !!(token && user);
+    } catch {
+      return false;
+    }
+  })();
+
+  // Build the correct CTA link:
+  // - Basic plan → login or student home (no upgrade)
+  // - Paid plans → login with redirect=upgrade, or student home with upgrade=1
+  const ctaLink = (() => {
+    const isBasic = plan.planCode === "BASIC";
+    if (isBasic) {
+      return isLoggedIn ? "/student/home" : "/login";
+    }
+    if (isLoggedIn) {
+      return "/student/home?upgrade=1";
+    }
+    return `/login?redirect=upgrade`;
+  })();
+
   const cardStyle = {
     background: "#ffffff",
     borderRadius: "22px",
@@ -499,7 +524,7 @@ function PricingCard({ plan }) {
 
       {/* CTA Button pinned to bottom */}
       <div style={{ marginTop: "auto", paddingTop: "16px" }}>
-        <Link to="/student/ai-tutor" style={{ textDecoration: "none" }}>
+        <Link to={ctaLink} style={{ textDecoration: "none" }}>
           <button
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
