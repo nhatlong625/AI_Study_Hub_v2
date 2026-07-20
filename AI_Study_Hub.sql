@@ -644,9 +644,11 @@ BEGIN
         activity_id     INT IDENTITY(1,1) NOT NULL,
         user_id         INT NOT NULL,
         document_id     INT NOT NULL,
-        summary_id      INT NOT NULL,
-        session_id      INT NOT NULL,
-        question_id     INT NOT NULL,
+        -- NULL được: một hoạt động 'Reading' chỉ gắn với document, không có
+        -- summary/session/question nào để tham chiếu.
+        summary_id      INT NULL,
+        session_id      INT NULL,
+        question_id     INT NULL,
         activity_type   NVARCHAR(50) NOT NULL,
         study_duration  INT NOT NULL,
         activity_date   DATETIME NOT NULL,
@@ -655,6 +657,25 @@ BEGIN
         CONSTRAINT PK_STUDY_ACTIVITY PRIMARY KEY (activity_id)
     );
 END
+GO
+
+-- Database tạo trước khi có tính năng Study Time vẫn để 3 cột này NOT NULL,
+-- mà hoạt động 'Reading' không có summary/session/question để điền.
+-- Khối dưới nới lỏng ràng buộc trên DB cũ; chạy lại nhiều lần vẫn an toàn.
+IF EXISTS (SELECT 1 FROM sys.columns
+           WHERE object_id = OBJECT_ID(N'dbo.STUDY_ACTIVITY')
+             AND name = N'summary_id' AND is_nullable = 0)
+    ALTER TABLE dbo.STUDY_ACTIVITY ALTER COLUMN summary_id INT NULL;
+GO
+IF EXISTS (SELECT 1 FROM sys.columns
+           WHERE object_id = OBJECT_ID(N'dbo.STUDY_ACTIVITY')
+             AND name = N'session_id' AND is_nullable = 0)
+    ALTER TABLE dbo.STUDY_ACTIVITY ALTER COLUMN session_id INT NULL;
+GO
+IF EXISTS (SELECT 1 FROM sys.columns
+           WHERE object_id = OBJECT_ID(N'dbo.STUDY_ACTIVITY')
+             AND name = N'question_id' AND is_nullable = 0)
+    ALTER TABLE dbo.STUDY_ACTIVITY ALTER COLUMN question_id INT NULL;
 GO
 
 -- Normalize the legacy plural table name before creating/altering TOKEN.
