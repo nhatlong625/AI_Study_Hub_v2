@@ -32,6 +32,29 @@ public class DatabaseSchemaGuard {
                    AND COL_LENGTH(N'dbo.DOCUMENT', N'summary_updated_at') IS NULL
                     ALTER TABLE dbo.DOCUMENT ADD summary_updated_at DATETIME2 NULL
                 """);
+        run("DOCUMENT.deleted_at", """
+                IF OBJECT_ID(N'dbo.DOCUMENT', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT', N'deleted_at') IS NULL
+                    ALTER TABLE dbo.DOCUMENT ADD deleted_at DATETIME2 NULL
+                """);
+        run("DOCUMENT.deleted_by_user_id", """
+                IF OBJECT_ID(N'dbo.DOCUMENT', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT', N'deleted_by_user_id') IS NULL
+                    ALTER TABLE dbo.DOCUMENT ADD deleted_by_user_id INT NULL
+                """);
+        run("DOCUMENT.deleted_by_role", """
+                IF OBJECT_ID(N'dbo.DOCUMENT', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT', N'deleted_by_role') IS NULL
+                    ALTER TABLE dbo.DOCUMENT ADD deleted_by_role NVARCHAR(20) NULL
+                """);
+        run("IX_DOCUMENT_deleted_at", """
+                IF OBJECT_ID(N'dbo.DOCUMENT', N'U') IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM sys.indexes
+                                   WHERE object_id = OBJECT_ID(N'dbo.DOCUMENT')
+                                     AND name = N'IX_DOCUMENT_deleted_at')
+                    CREATE INDEX IX_DOCUMENT_deleted_at
+                        ON dbo.DOCUMENT(deleted_at, user_id)
+                """);
 
         run("USER.is_verified", """
                 IF OBJECT_ID(N'dbo.[USER]', N'U') IS NOT NULL
