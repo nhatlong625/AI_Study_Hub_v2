@@ -57,4 +57,13 @@ public class Document {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by_user_id")
+    private Integer deletedByUserId;
+
+    @Column(name = "deleted_by_role", length = 20)
+    private String deletedByRole;
 }

@@ -51,6 +51,7 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
             LEFT JOIN DOCUMENT d ON d.subject_id = s.subject_id
                 AND d.user_id = :userId
                 AND us.user_subject_id IS NOT NULL
+                AND d.deleted_at IS NULL
                 AND LOWER(d.document_name) NOT LIKE 'mock-%'
             GROUP BY sem.semester_id, sem.semester_name,
                      s.subject_id, s.subject_code, s.subject_name, s.description
@@ -75,6 +76,7 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
                 FROM DOCUMENT d
                 WHERE d.visibility_status = 'PUBLIC'
                   AND d.status = 'Active'
+                  AND d.deleted_at IS NULL
                   AND LOWER(d.document_name) NOT LIKE 'mock-%'
             )
             SELECT s.subject_id AS subjectId,
@@ -89,6 +91,7 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
             LEFT JOIN DOCUMENT d ON d.subject_id = s.subject_id
                 AND d.visibility_status = 'PUBLIC'
                 AND d.status = 'Active'
+                AND d.deleted_at IS NULL
                 AND LOWER(d.document_name) NOT LIKE 'mock-%'
             LEFT JOIN ranked_public_documents recent ON recent.subject_id = s.subject_id
                 AND recent.rn = 1
@@ -106,7 +109,15 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
     List<Document> findBySubjectId(Integer subjectId);
     List<Document> findByUserId(Integer userId);
     List<Document> findByUserIdAndSubjectId(Integer userId, Integer subjectId);
+    List<Document> findBySubjectIdAndDeletedAtIsNull(Integer subjectId);
+    List<Document> findByUserIdAndDeletedAtIsNull(Integer userId);
+    List<Document> findByUserIdAndSubjectIdAndDeletedAtIsNull(Integer userId, Integer subjectId);
+    List<Document> findByUserIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(Integer userId);
+    List<Document> findByDeletedAtIsNotNullOrderByDeletedAtDesc();
+    List<Document> findByDeletedAtBefore(LocalDateTime cutoff);
     List<Document> findByStatus(String status);
     List<Document> findBySubjectIdAndVisibilityStatus(Integer subjectId, String visibilityStatus);
+    List<Document> findBySubjectIdAndVisibilityStatusAndDeletedAtIsNull(Integer subjectId, String visibilityStatus);
     List<Document> findByVisibilityStatus(String visibilityStatus);
+    List<Document> findByVisibilityStatusAndDeletedAtIsNull(String visibilityStatus);
 }
