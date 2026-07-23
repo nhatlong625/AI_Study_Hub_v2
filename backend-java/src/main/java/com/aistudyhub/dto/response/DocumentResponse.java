@@ -19,4 +19,5 @@ public class DocumentResponse {
     private LocalDateTime uploadedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
 }
