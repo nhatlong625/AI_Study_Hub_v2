@@ -1,4 +1,4 @@
-﻿package com.aistudyhub.service;
+package com.aistudyhub.service;
 
 import com.aistudyhub.dto.python.PythonQuizGenerateRequest;
 import com.aistudyhub.dto.quiz.PracticeTestGenerateRequest;

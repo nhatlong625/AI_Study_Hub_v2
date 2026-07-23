@@ -21,7 +21,10 @@ public class LibraryService {
     @Transactional(readOnly = true)
     public LibraryOverviewResponse getOverview(Integer userId) {
         LibraryOverviewResponse response = new LibraryOverviewResponse();
-        
+
+        // Max storage = the user's plan version quota (max_storage in MB).
+        // Read via us.version_id so existing subscribers stay grandfathered on their purchased
+        // version until they renew; new/renewing users pick up the latest version's quota.
         Integer maxStorageMb;
         try {
             maxStorageMb = jdbcTemplate.queryForObject("""
