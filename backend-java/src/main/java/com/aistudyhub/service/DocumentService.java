@@ -944,6 +944,8 @@ public class DocumentService {
     // Normalized note.
 
     private void checkStorageLimit(Integer userId, long newFileSize) {
+        // Storage quota = the user's plan version max_storage (MB), read via us.version_id so the
+        // enforced limit matches the grandfathered quota shown in LibraryService.getOverview.
         Integer maxStorageMb;
         try {
             maxStorageMb = jdbcTemplate.queryForObject("""

@@ -79,6 +79,11 @@ public class AuthServiceImpl implements AuthService {
             user = userRepository.save(user);
         }
 
+        // Give every newly registered user the default Basic subscription (idempotent),
+        // matching the Google sign-up flow. Without this, email/password users have no
+        // USER_SUBSCRIPTION row and fall back to hard-coded storage/quiz defaults.
+        insertBasicSubscription(user.getUserId());
+
         String shortCode = generateShortCode();
         String uuid = UUID.randomUUID().toString();
         String tokenValue = shortCode + "-" + uuid;
@@ -289,6 +294,8 @@ public class AuthServiceImpl implements AuthService {
 
     private void insertBasicSubscription(Integer userId) {
         try {
+            // Idempotent: only create the default Basic subscription if the user has none yet,
+            // so it is safe to call from both email/password registration and Google sign-up.
             jdbcTemplate.update("""
                     INSERT INTO dbo.USER_SUBSCRIPTION (user_id, plan_id, version_id, start_date, end_date, status, renewal_policy)
                     SELECT ?, sp.plan_id, pv.version_id,
@@ -298,7 +305,8 @@ public class AuthServiceImpl implements AuthService {
                     FROM dbo.SUBSCRIPTION_PLAN sp
                     JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.plan_id=sp.plan_id AND pv.is_active=1
                     WHERE UPPER(sp.plan_name) = 'BASIC'
-                    """, userId);
+                      AND NOT EXISTS (SELECT 1 FROM dbo.USER_SUBSCRIPTION us WHERE us.user_id = ?)
+                    """, userId, userId);
         } catch (Exception e) {
             log.error("Failed to insert Basic subscription for user {}: {}", userId, e.getMessage());
         }
