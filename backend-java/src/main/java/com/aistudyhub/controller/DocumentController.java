@@ -51,6 +51,15 @@ public class DocumentController {
         return ResponseEntity.ok(documentService.getById(id));
     }
 
+    /** Heartbeat báo user đang đọc tài liệu — dùng để tính Study Time ở profile. */
+    @PostMapping("/{id}/reading-heartbeat")
+    public ResponseEntity<Void> readingHeartbeat(
+            @PathVariable Integer id,
+            @RequestParam(value = "seconds", defaultValue = "30") int seconds) {
+        documentService.recordReadingHeartbeat(id, currentUser.id(), seconds);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{id}/preview")
     public ResponseEntity<ByteArrayResource> preview(@PathVariable Integer id) {
         documentService.requireReadable(id, currentUser.id());
