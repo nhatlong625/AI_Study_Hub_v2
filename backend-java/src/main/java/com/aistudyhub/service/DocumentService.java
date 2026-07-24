@@ -86,6 +86,7 @@ public class DocumentService {
     private final WebClient pythonAiWebClient;
     private final EmailService emailService;
     private final JdbcTemplate jdbcTemplate;
+    private final PlanQuotaService planQuotaService;
     private final ApplicationEventPublisher eventPublisher;
 
     public record DocumentFile(String fileName, MediaType mediaType, byte[] bytes) {}
@@ -944,23 +945,11 @@ public class DocumentService {
     // Normalized note.
 
     private void checkStorageLimit(Integer userId, long newFileSize) {
-        // Storage quota = the user's plan version max_storage (MB), read via us.version_id so the
-        // enforced limit matches the grandfathered quota shown in LibraryService.getOverview.
-        Integer maxStorageMb;
-        try {
-            maxStorageMb = jdbcTemplate.queryForObject("""
-                    SELECT TOP 1 pv.max_storage
-                    FROM dbo.USER_SUBSCRIPTION us
-                    JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
-                    WHERE us.user_id = ? AND us.status = 'Active'
-                    ORDER BY us.end_date DESC, us.subscription_id DESC
-                    """, Integer.class, userId);
-        } catch (Exception e) {
-            maxStorageMb = 1024;
-        }
-        if (maxStorageMb == null) maxStorageMb = 1024;
-
-        long maxStorageBytes = (long) maxStorageMb * 1024L * 1024L;
+        // Resolved through PlanQuotaService so the enforced limit always matches the quota
+        // LibraryService.getOverview displays.
+        PlanQuotaService.PlanQuota quota = planQuotaService.getQuota(userId);
+        int maxStorageMb = quota.maxStorageMb();
+        long maxStorageBytes = quota.maxStorageBytes();
 
         Long usedBytes;
         try {

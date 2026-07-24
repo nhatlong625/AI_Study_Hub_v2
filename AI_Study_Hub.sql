@@ -1002,8 +1002,18 @@ BEGIN
     );
 END
 
-INSERT INTO dbo.USER_SUBSCRIPTION (user_id, plan_id, start_date, end_date, status)
-SELECT u.user_id, @BasicPlanId, CAST(GETDATE() AS DATE), DATEADD(month, 1, CAST(GETDATE() AS DATE)), N'Active'
+-- version_id must be set: every quota lookup joins USER_SUBSCRIPTION to
+-- SUBSCRIPTION_PLAN_VERSION through it, and a NULL leaves the account on hard-coded defaults
+-- instead of the configured plan limits.
+DECLARE @BasicVersionId INT = (
+    SELECT TOP 1 pv.version_id
+    FROM dbo.SUBSCRIPTION_PLAN_VERSION pv
+    WHERE pv.plan_id = @BasicPlanId AND pv.is_active = 1
+    ORDER BY pv.version_no DESC
+);
+
+INSERT INTO dbo.USER_SUBSCRIPTION (user_id, plan_id, version_id, start_date, end_date, status)
+SELECT u.user_id, @BasicPlanId, @BasicVersionId, CAST(GETDATE() AS DATE), DATEADD(month, 1, CAST(GETDATE() AS DATE)), N'Active'
 FROM dbo.[USER] u
 WHERE u.email IN (N'admin2@aistudyhub.local', N'student2@aistudyhub.local')
   AND NOT EXISTS
