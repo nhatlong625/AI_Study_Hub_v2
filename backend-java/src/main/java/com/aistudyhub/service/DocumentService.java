@@ -948,7 +948,6 @@ public class DocumentService {
         // Resolved through PlanQuotaService so the enforced limit always matches the quota
         // LibraryService.getOverview displays.
         PlanQuotaService.PlanQuota quota = planQuotaService.getQuota(userId);
-        int maxStorageMb = quota.maxStorageMb();
         long maxStorageBytes = quota.maxStorageBytes();
 
         Long usedBytes;
@@ -964,8 +963,10 @@ public class DocumentService {
         if (usedBytes == null) usedBytes = 0L;
 
         if (usedBytes + newFileSize > maxStorageBytes) {
-            long usedMb = usedBytes / (1024L * 1024L);
-            throw new BadRequestException("STORAGE_LIMIT_REACHED:" + usedMb + ":" + maxStorageMb);
+            // Raw byte values let the client format precisely (e.g. "0.5 GB") and explain that the
+            // file being uploaded is what pushes the account over quota, not the current usage alone.
+            throw new BadRequestException(
+                    "STORAGE_LIMIT_REACHED:" + usedBytes + ":" + maxStorageBytes + ":" + newFileSize);
         }
     }
 

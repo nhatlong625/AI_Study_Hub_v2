@@ -246,6 +246,9 @@ public class PaymentService {
                 );
             } else {
                 Map<String, Object> old = existing.get(0);
+                // The subscriber's renewal policy decides what a renewal of the same plan does:
+                // KEEP_VERSION keeps the grandfathered version they bought, LATEST_VERSION (and any
+                // plan change or new purchase) moves them to the plan's latest active version.
                 boolean samePlan = ((Number) old.get("planId")).intValue() == planId;
                 boolean keepVersion = "KEEP_VERSION".equalsIgnoreCase(String.valueOf(old.get("renewalPolicy")));
                 int selectedVersionId = samePlan && keepVersion

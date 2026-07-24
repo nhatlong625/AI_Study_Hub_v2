@@ -97,6 +97,29 @@ public class PlanVersionController {
             """, Map.of("versionId", versionId));
     }
 
+    /**
+     * Subscribers eligible for a renewal policy. Basic is excluded because it is the free plan and
+     * is never grandfathered, so keeping vs. moving version on renewal has no meaning for it.
+     */
+    @GetMapping("/subscriptions")
+    public List<Map<String, Object>> subscriptions() {
+        return jdbc.queryForList("""
+            SELECT us.subscription_id AS id,
+                   u.full_name AS name, u.email,
+                   UPPER(sp.plan_name) AS [plan],
+                   pv.version_no AS versionNo,
+                   us.status,
+                   COALESCE(us.renewal_policy, 'KEEP_VERSION') AS renewalPolicy,
+                   CONVERT(NVARCHAR(10), us.end_date, 120) AS endDate
+            FROM dbo.USER_SUBSCRIPTION us
+            JOIN dbo.[USER] u ON u.user_id = us.user_id
+            JOIN dbo.SUBSCRIPTION_PLAN sp ON sp.plan_id = us.plan_id
+            LEFT JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
+            WHERE UPPER(sp.plan_name) <> 'BASIC' AND u.status = 'Active'
+            ORDER BY sp.plan_name, u.full_name
+            """, Map.of());
+    }
+
     @GetMapping("/versions/{versionId}/subscribers")
     public List<Map<String, Object>> versionSubscribers(@PathVariable Integer versionId) {
         return jdbc.queryForList("""

@@ -8,7 +8,7 @@ export default function AdminPlanManagementPage() {
   const [error, setError] = useState('');
 
   const loadMembers = async () => {
-    try { const data = await adminService.getPayments(); setMembers(data.members || []); }
+    try { const data = await adminService.getPlanSubscriptions(); setMembers(Array.isArray(data) ? data : []); }
     catch (err) { setError(err.message || 'Could not load subscriptions.'); }
   };
   useEffect(() => { loadMembers(); }, []);

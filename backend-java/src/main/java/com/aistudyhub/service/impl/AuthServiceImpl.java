@@ -348,11 +348,15 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private String normalizePlanName(String planName) {
-        String normalized = planName == null ? "Basic" : planName.trim().toLowerCase();
-        return switch (normalized) {
+        if (planName == null || planName.isBlank()) return "Basic";
+        String trimmed = planName.trim();
+        // Chuẩn hóa 3 gói gốc cho đẹp; các gói admin tự tạo (vd "NQS") giữ nguyên tên đã lưu
+        // thay vì bị ép về "Basic".
+        return switch (trimmed.toLowerCase()) {
+            case "basic" -> "Basic";
             case "plus" -> "Plus";
             case "pro" -> "Pro";
-            default -> "Basic";
+            default -> trimmed;
         };
     }
 

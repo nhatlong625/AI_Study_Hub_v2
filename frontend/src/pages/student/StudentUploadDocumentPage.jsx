@@ -6,7 +6,7 @@ import PageHeader from "../../components/common/PageHeader";
 import Button from "../../components/common/Button";
 import { documentApi, semesterApi } from "../../services/libraryApi";
 import UpgradePricingModal from "../../components/student/UpgradePricingModal";
-import { formatStorageMb } from "../../utils/formatStorage";
+import { formatStorageBytes } from "../../utils/formatStorage";
 
 function getCurrentUserId() {
   try {
@@ -18,10 +18,18 @@ function getCurrentUserId() {
 }
 
 function parseStorageLimitError(message) {
-  // Format: "STORAGE_LIMIT_REACHED:usedMb:maxMb"
+  // Format: "STORAGE_LIMIT_REACHED:usedBytes:maxBytes:fileBytes"
   if (!message || !message.startsWith("STORAGE_LIMIT_REACHED:")) return null;
   const parts = message.split(":");
-  return { used: Number(parts[1]), max: Number(parts[2]) };
+  const usedBytes = Number(parts[1]);
+  const maxBytes = Number(parts[2]);
+  const fileBytes = Number(parts[3]);
+  return {
+    usedBytes,
+    maxBytes,
+    fileBytes: Number.isFinite(fileBytes) ? fileBytes : 0,
+    freeBytes: Math.max(maxBytes - usedBytes, 0),
+  };
 }
 
 function StudentUploadDocumentPage() {
@@ -35,6 +43,7 @@ function StudentUploadDocumentPage() {
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [storageLimit, setStorageLimit] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
@@ -92,17 +101,18 @@ function StudentUploadDocumentPage() {
       });
     } catch (err) {
       const msg = err.message || "Upload failed. Please try again.";
-      setError(msg);
-      // Tự động mở Upgrade modal nếu bị giới hạn storage
-      if (msg.startsWith("STORAGE_LIMIT_REACHED:")) {
-        setShowUpgradeModal(true);
+      // Vượt dung lượng: hiện popup báo lỗi, để người dùng tự bấm Upgrade Plan.
+      const limitInfo = parseStorageLimitError(msg);
+      if (limitInfo) {
+        setStorageLimit(limitInfo);
+        setError("");
+      } else {
+        setError(msg);
       }
     } finally {
       setUploading(false);
     }
   };
-
-  const limitInfo = parseStorageLimitError(error);
 
   return (
     <>
@@ -150,48 +160,7 @@ function StudentUploadDocumentPage() {
                 onChange={(e) => setDescription(e.target.value)}
               />
 
-              {/* Storage limit error */}
-              {limitInfo ? (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                  <p className="text-sm font-bold text-amber-800 mb-1">
-                    Storage Limit Reached
-                  </p>
-                  <p className="text-xs text-amber-600 mb-3">
-                    You've used{" "}
-                    <span className="font-bold">
-                      {formatStorageMb(limitInfo.used)}
-                    </span>{" "}
-                    of your {formatStorageMb(limitInfo.max)} storage
-                    quota. Upgrade your plan to get more storage.
-                  </p>
-                  <div className="h-1.5 rounded-full bg-amber-200 overflow-hidden mb-3">
-                    <div
-                      className="h-1.5 rounded-full bg-amber-500"
-                      style={{
-                        width: `${Math.min((limitInfo.used / limitInfo.max) * 100, 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowUpgradeModal(true)}
-                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors"
-                    >
-                      Upgrade Plan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setError("")}
-                      className="px-3 py-1.5 border border-amber-300 text-amber-700 text-xs font-semibold rounded-lg hover:bg-amber-100 transition-colors"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              ) : error ? (
-                <p className="text-sm text-red-500">{error}</p>
-              ) : null}
+              {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
               <Button onClick={handleUpload} disabled={uploading}>
                 {uploading ? "Uploading..." : "Upload document"}
@@ -237,6 +206,135 @@ function StudentUploadDocumentPage() {
           </Card>
         </section>
       </div>
+
+      {storageLimit && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Storage limit reached"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            background: "rgba(15,23,42,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={() => setStorageLimit(null)}
+        >
+          <div
+            style={{
+              width: "min(420px, 100%)",
+              background: "#fff",
+              borderRadius: 16,
+              padding: 28,
+              boxShadow: "0 24px 60px rgba(15,23,42,0.24)",
+              textAlign: "center",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                margin: "0 auto 16px",
+                borderRadius: "50%",
+                background: "#fef3c7",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 28,
+              }}
+            >
+              ⚠️
+            </div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 19, color: "#111827" }}>
+              Đã vượt quá dung lượng
+            </h3>
+            <p
+              style={{
+                margin: "0 0 18px",
+                fontSize: 14,
+                color: "#4b5563",
+                lineHeight: 1.5,
+              }}
+            >
+              Bạn đã dùng{" "}
+              <strong>{formatStorageBytes(storageLimit.usedBytes)}</strong> trên
+              tổng <strong>{formatStorageBytes(storageLimit.maxBytes)}</strong>{" "}
+              dung lượng của gói hiện tại.
+              {storageLimit.fileBytes > 0 && (
+                <>
+                  {" "}
+                  File này (
+                  <strong>{formatStorageBytes(storageLimit.fileBytes)}</strong>)
+                  vượt quá{" "}
+                  <strong>{formatStorageBytes(storageLimit.freeBytes)}</strong>{" "}
+                  còn trống.
+                </>
+              )}{" "}
+              Nâng cấp gói để có thêm dung lượng lưu trữ.
+            </p>
+            <div
+              style={{
+                height: 6,
+                borderRadius: 999,
+                background: "#fde68a",
+                overflow: "hidden",
+                marginBottom: 22,
+              }}
+            >
+              <div
+                style={{
+                  height: 6,
+                  borderRadius: 999,
+                  background: "#f59e0b",
+                  width: `${storageLimit.maxBytes > 0 ? Math.min((storageLimit.usedBytes / storageLimit.maxBytes) * 100, 100) : 0}%`,
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <button
+                type="button"
+                onClick={() => setStorageLimit(null)}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  color: "#374151",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Để sau
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStorageLimit(null);
+                  setShowUpgradeModal(true);
+                }}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#5046e5",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Upgrade Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <UpgradePricingModal
         isOpen={showUpgradeModal}

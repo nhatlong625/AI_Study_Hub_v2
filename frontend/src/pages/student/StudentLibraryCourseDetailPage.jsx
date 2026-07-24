@@ -7,13 +7,21 @@ import { documentApi, semesterApi } from "../../services/libraryApi";
 import ShareDocumentModal from "../../components/common/ShareDocumentModal";
 import UpgradePricingModal from "../../components/student/UpgradePricingModal";
 import { useHistoryContext } from "../../hooks/useHistory";
-import { formatStorageMb } from "../../utils/formatStorage";
+import { formatStorageBytes } from "../../utils/formatStorage";
 
 function parseStorageLimitError(message) {
-  // Format: "STORAGE_LIMIT_REACHED:usedMb:maxMb"
+  // Format: "STORAGE_LIMIT_REACHED:usedBytes:maxBytes:fileBytes"
   if (!message || !message.startsWith("STORAGE_LIMIT_REACHED:")) return null;
   const parts = message.split(":");
-  return { used: Number(parts[1]), max: Number(parts[2]) };
+  const usedBytes = Number(parts[1]);
+  const maxBytes = Number(parts[2]);
+  const fileBytes = Number(parts[3]);
+  return {
+    usedBytes,
+    maxBytes,
+    fileBytes: Number.isFinite(fileBytes) ? fileBytes : 0,
+    freeBytes: Math.max(maxBytes - usedBytes, 0),
+  };
 }
 
 const AVATAR_COLORS = [
@@ -812,10 +820,7 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
       setUploading(false);
       const msg = err?.message || "Upload failed! Please try again.";
       setError(msg);
-      // Tự động mở Upgrade modal nếu bị giới hạn storage.
-      if (msg.startsWith("STORAGE_LIMIT_REACHED:")) {
-        setShowUpgradeModal(true);
-      }
+      // Không tự mở bảng giá — hiện lỗi kèm nút Upgrade Plan để người dùng tự bấm.
     }
   }
 
@@ -963,16 +968,23 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
               <p className="text-xs text-amber-600 mb-3">
                 You've used{" "}
                 <span className="font-bold">
-                  {formatStorageMb(limitInfo.used)}
+                  {formatStorageBytes(limitInfo.usedBytes)}
                 </span>{" "}
-                of your {formatStorageMb(limitInfo.max)} storage quota.
+                of your {formatStorageBytes(limitInfo.maxBytes)} storage quota.
+                {limitInfo.fileBytes > 0 && (
+                  <>
+                    {" "}This file ({formatStorageBytes(limitInfo.fileBytes)})
+                    exceeds the {formatStorageBytes(limitInfo.freeBytes)} you have
+                    left.
+                  </>
+                )}{" "}
                 Upgrade your plan to get more storage.
               </p>
               <div className="h-1.5 rounded-full bg-amber-200 overflow-hidden mb-3">
                 <div
                   className="h-1.5 rounded-full bg-amber-500"
                   style={{
-                    width: `${Math.min((limitInfo.used / limitInfo.max) * 100, 100)}%`,
+                    width: `${limitInfo.maxBytes > 0 ? Math.min((limitInfo.usedBytes / limitInfo.maxBytes) * 100, 100) : 0}%`,
                   }}
                 />
               </div>
