@@ -30,6 +30,7 @@ import java.util.Map;
 public class PracticeTestService {
     private final NamedParameterJdbcTemplate jdbc;
     private final DocumentService documentService;
+    private final PlanQuotaService planQuotaService;
     private final WebClient pythonAiWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -565,17 +566,7 @@ public class PracticeTestService {
     // Normalized note.
 
     private void checkQuizLimit(Integer userId) {
-        List<Map<String, Object>> planRows = jdbc.queryForList("""
-                SELECT TOP 1 pv.max_quiz_per_month
-                FROM dbo.USER_SUBSCRIPTION us
-                JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
-                WHERE us.user_id = :userId AND us.status = 'Active'
-                ORDER BY us.end_date DESC, us.subscription_id DESC
-                """, Map.of("userId", userId));
-
-        int maxQuiz = planRows.isEmpty()
-                ? 10
-                : ((Number) planRows.get(0).get("max_quiz_per_month")).intValue();
+        int maxQuiz = planQuotaService.getQuota(userId).maxQuizPerMonth();
 
         if (maxQuiz == -1) return;
 
