@@ -4,6 +4,7 @@ import com.aistudyhub.dto.request.ChangePasswordRequest;
 import com.aistudyhub.dto.request.UpdateSettingsRequest;
 import com.aistudyhub.dto.response.*;
 import com.aistudyhub.security.CurrentUser;
+import com.aistudyhub.service.PlanQuotaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final WebClient supabaseWebClient;
     private final CurrentUser currentUser;
+    private final PlanQuotaService planQuotaService;
 
     @Value("${supabase.url}")
     private String supabaseUrl;
@@ -267,10 +269,14 @@ public class UserController {
                     pv.max_quiz_per_month, pv.features_json AS description, us.renewal_policy
                 FROM dbo.USER_SUBSCRIPTION us
                 JOIN dbo.SUBSCRIPTION_PLAN sp ON sp.plan_id = us.plan_id
-                JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
+                LEFT JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
                 WHERE us.user_id = ?
                 ORDER BY us.end_date DESC, us.subscription_id DESC
                 """, userId);
+
+        // Quota comes from PlanQuotaService, not from pv, so the numbers shown here match what
+        // upload and quiz generation actually enforce (Basic follows the active version).
+        PlanQuotaService.PlanQuota quota = planQuotaService.getQuota(userId);
 
         if (rows.isEmpty()) {
             return ResponseEntity.ok(Map.of(
@@ -279,7 +285,8 @@ public class UserController {
                 "startDate", "",
                 "endDate", "",
                 "price", 0,
-                "maxStorage", 1024,
+                "maxStorage", quota.maxStorageMb(),
+                "maxQuiz", quota.maxQuizPerMonth(),
                 "autoRenewal", true
             ));
         }
@@ -295,8 +302,8 @@ public class UserController {
         result.put("endDate", row.get("end_date") != null ? row.get("end_date").toString() : "");
         result.put("price", row.get("price"));
         result.put("durationMonth", row.get("duration_month"));
-        result.put("maxStorage", row.get("max_storage"));
-        result.put("maxQuiz", row.get("max_quiz_per_month"));
+        result.put("maxStorage", quota.maxStorageMb());
+        result.put("maxQuiz", quota.maxQuizPerMonth());
         result.put("description", row.get("description"));
         result.put("renewalPolicy", row.get("renewal_policy"));
         result.put("autoRenewal", toBool(row.get("auto_renewal")));

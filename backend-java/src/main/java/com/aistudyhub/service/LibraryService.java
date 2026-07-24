@@ -5,7 +5,6 @@ import com.aistudyhub.dto.response.LibrarySemesterResponse;
 import com.aistudyhub.dto.response.LibrarySubjectResponse;
 import com.aistudyhub.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,29 +15,15 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LibraryService {
     private final DocumentRepository documentRepository;
-    private final JdbcTemplate jdbcTemplate;
+    private final PlanQuotaService planQuotaService;
 
     @Transactional(readOnly = true)
     public LibraryOverviewResponse getOverview(Integer userId) {
         LibraryOverviewResponse response = new LibraryOverviewResponse();
 
-        // Max storage = the user's plan version quota (max_storage in MB).
-        // Read via us.version_id so existing subscribers stay grandfathered on their purchased
-        // version until they renew; new/renewing users pick up the latest version's quota.
-        Integer maxStorageMb;
-        try {
-            maxStorageMb = jdbcTemplate.queryForObject("""
-                    SELECT TOP 1 pv.max_storage
-                    FROM dbo.USER_SUBSCRIPTION us
-                    JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
-                    WHERE us.user_id = ? AND us.status = 'Active'
-                    ORDER BY us.end_date DESC, us.subscription_id DESC
-                    """, Integer.class, userId);
-        } catch (Exception e) {
-            maxStorageMb = 1024;
-        }
-        if (maxStorageMb == null) maxStorageMb = 1024;
-        response.setMaxStorageBytes(maxStorageMb * 1024L * 1024L);
+        // Max storage = the quota in force for the user's plan (grandfathered for paid plans,
+        // always the active version for Basic). See PlanQuotaService.
+        response.setMaxStorageBytes(planQuotaService.getQuota(userId).maxStorageBytes());
 
         Map<Integer, LibrarySemesterResponse> semesters = new LinkedHashMap<>();
 
