@@ -9,10 +9,14 @@ import { documentApi, semesterApi } from "../../services/libraryApi";
 import { getDefaultAiUserId } from "../../services/aiChatService";
 
 function normalizePlan(plan) {
-  const normalized = String(plan || "Basic").trim().toLowerCase();
+  const raw = String(plan || "Basic").trim();
+  if (!raw) return "Basic";
+  const normalized = raw.toLowerCase();
+  if (normalized === "basic") return "Basic";
   if (normalized === "plus") return "Plus";
   if (normalized === "pro") return "Pro";
-  return "Basic";
+  // Gói admin tự tạo (vd "NQS") giữ nguyên tên đã lưu thay vì ép về "Basic".
+  return raw;
 }
 
 function getCurrentUser() {
