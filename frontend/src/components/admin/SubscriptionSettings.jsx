@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { adminService } from '../../services/adminService';
+import { formatStorageMb } from '../../utils/formatStorage';
 
 const SUGGESTED_FEATURES = {
   BASIC: [
@@ -18,6 +19,10 @@ const SUGGESTED_FEATURES = {
   ],
 };
 
+// Basic is handed to every new account for free, so it carries no purchase to grandfather:
+// the backend resolves its quota from the active version for all accounts, old and new.
+const isFreePlan = code => String(code || '').toUpperCase() === 'BASIC';
+
 export default function SubscriptionSettings() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +32,9 @@ export default function SubscriptionSettings() {
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null);
   const [subscriberModal, setSubscriberModal] = useState(null);
   const [subscriberLoading, setSubscriberLoading] = useState(false);
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState([]);
+  const [migrating, setMigrating] = useState(false);
+  const [migrateResult, setMigrateResult] = useState(null);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [newPlan, setNewPlan] = useState({
     planName: '',
@@ -89,7 +97,11 @@ export default function SubscriptionSettings() {
         featuresJson: JSON.stringify(plan.features || []),
       });
       await loadPlans();
-      setSuccess(`Created a new ${plan.code} version. Existing subscribers keep their purchased benefits.`);
+      // Basic is the free plan every account gets, so it is not grandfathered: existing accounts
+      // follow the active version immediately. Paid plans keep the version they bought.
+      setSuccess(isFreePlan(plan.code)
+        ? `Created a new ${plan.code} version. All ${plan.code} accounts now use these limits, including existing ones.`
+        : `Created a new ${plan.code} version. Existing subscribers keep the benefits they purchased until they renew.`);
     } catch (err) { setError(err.message || 'Could not create plan version.'); }
     finally { setSaving(''); }
   };
@@ -141,6 +153,8 @@ export default function SubscriptionSettings() {
   const openSubscribers = async (plan, version) => {
     if (!version?.versionId) return;
     const versions = plan.versions || [version];
+    setSelectedSubscriptions([]);
+    setMigrateResult(null);
     setSubscriberModal({ plan: plan.code, versions, version, subscribers: [], error: '' });
     setSubscriberLoading(true);
     try {
@@ -152,6 +166,39 @@ export default function SubscriptionSettings() {
       setSubscriberLoading(false);
     }
   };
+
+  const toggleSubscription = (subscriptionId) => {
+    setSelectedSubscriptions(prev => prev.includes(subscriptionId)
+      ? prev.filter(id => id !== subscriptionId)
+      : [...prev, subscriptionId]);
+  };
+
+  // Passing no ids migrates the whole version, so "select all" sends null rather than a list.
+  const migrateSubscribers = async (subscriptionIds) => {
+    if (!subscriberModal?.version?.versionId) return;
+    setMigrating(true); setMigrateResult(null);
+    try {
+      const result = await adminService.migratePlanVersion(subscriberModal.version.versionId, subscriptionIds);
+      setMigrateResult(result);
+      setSelectedSubscriptions([]);
+      await loadPlans();
+      const refreshed = await adminService.getPlanVersionSubscribers(subscriberModal.version.versionId);
+      setSubscriberModal(prev => prev && { ...prev, subscribers: Array.isArray(refreshed) ? refreshed : [] });
+    } catch (err) {
+      setMigrateResult({ error: err.message || 'Could not migrate subscribers.' });
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  // The active version is the migration target, so it has nothing to move onto.
+  const activeVersion = (subscriberModal?.versions || []).find(version => version.isActive)
+    || (subscriberModal?.versions || [])[0];
+  const isActiveVersion = !subscriberModal
+    || String(activeVersion?.versionId) === String(subscriberModal.version?.versionId);
+  const targetStorageMb = Number(activeVersion?.maxStorage);
+  const overQuota = item => Number.isFinite(targetStorageMb)
+    && Number(item?.usedStorageMb) > targetStorageMb;
 
   if (loading) return <div className="as-section"><div className="as-section-body">Loading plan versions...</div></div>;
   return <>
@@ -212,18 +259,52 @@ export default function SubscriptionSettings() {
         </div>
         {subscriberLoading && <div style={{ color:'#6b7280' }}>Loading subscribers...</div>}
         {!subscriberLoading && subscriberModal.error && <div style={{ color:'#dc2626', background:'#fee2e2', padding:12, borderRadius:8 }}>{subscriberModal.error}</div>}
+        {!subscriberLoading && !subscriberModal.error && migrateResult && (migrateResult.error
+          ? <div style={{ color:'#dc2626', background:'#fee2e2', padding:12, borderRadius:8, marginBottom:12 }}>{migrateResult.error}</div>
+          : <div style={{ color:'#15803d', background:'#dcfce7', padding:12, borderRadius:8, marginBottom:12, fontSize:13 }}>
+              Moved <strong>{migrateResult.migrated}</strong> subscriber(s) to v{migrateResult.toVersionNo} and notified them.
+              {migrateResult.skipped?.length > 0 && <div style={{ color:'#92400e', marginTop:8 }}>
+                Skipped {migrateResult.skipped.length} subscriber(s) already using more storage than the new version allows:
+                {' '}{migrateResult.skipped.map(item => `${item.email || item.name} (${item.usedStorageMb}MB)`).join(', ')}.
+              </div>}
+            </div>)}
+        {!subscriberLoading && !subscriberModal.error && !isActiveVersion && subscriberModal.subscribers.length > 0 && <div style={{ display:'flex', flexWrap:'wrap', gap:10, alignItems:'center', justifyContent:'space-between', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 14px', marginBottom:12 }}>
+          <span style={{ fontSize:13, color:'#475569' }}>
+            {selectedSubscriptions.length > 0
+              ? `${selectedSubscriptions.length} selected`
+              : 'Select subscribers to move onto the active version, or move all of them.'}
+          </span>
+          <span style={{ display:'flex', gap:10 }}>
+            <button type="button" className="as-test-btn" style={{ margin:0 }} disabled={migrating || selectedSubscriptions.length === 0}
+              onClick={() => migrateSubscribers(selectedSubscriptions)}>
+              {migrating ? 'Moving...' : 'Move selected'}
+            </button>
+            <button type="button" className="as-save-btn" style={{ margin:0 }} disabled={migrating}
+              onClick={() => migrateSubscribers(null)}>
+              {migrating ? 'Moving...' : 'Move all to latest version'}
+            </button>
+          </span>
+        </div>}
         {!subscriberLoading && !subscriberModal.error && <table style={{ width:'100%', borderCollapse:'collapse' }}>
-          <thead><tr>{['User','Email','Status','Start Date','End Date','Renewal Policy'].map(label => <th key={label} style={{ textAlign:'left', padding:'10px 8px', borderBottom:'1px solid #e5e7eb', color:'#6b7280', fontSize:12 }}>{label}</th>)}</tr></thead>
+          <thead><tr>{[isActiveVersion ? '' : 'Move','User','Email','Status','Storage used','End Date','Renewal Policy'].map((label, index) => <th key={index} style={{ textAlign:'left', padding:'10px 8px', borderBottom:'1px solid #e5e7eb', color:'#6b7280', fontSize:12 }}>{label}</th>)}</tr></thead>
           <tbody>
             {subscriberModal.subscribers.map(item => <tr key={item.subscriptionId}>
+              <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6' }}>
+                {!isActiveVersion && <input type="checkbox" disabled={migrating}
+                  checked={selectedSubscriptions.includes(item.subscriptionId)}
+                  onChange={() => toggleSubscription(item.subscriptionId)} />}
+              </td>
               <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6', fontWeight:700, color:'#111827' }}>{item.name || `User ${item.userId}`}</td>
               <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6', color:'#4b5563' }}>{item.email}</td>
               <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6', color:item.status === 'Active' ? '#16a34a' : '#f97316', fontWeight:700 }}>{item.status}</td>
-              <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6', color:'#4b5563' }}>{item.startDate || '-'}</td>
+              <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6', color:overQuota(item) ? '#b45309' : '#4b5563', fontWeight:overQuota(item) ? 700 : 400 }}
+                  title={overQuota(item) ? 'Uses more than the active version allows - will be skipped' : ''}>
+                {formatStorageMb(item.usedStorageMb)}{overQuota(item) ? ' ⚠' : ''}
+              </td>
               <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6', color:'#4b5563' }}>{item.endDate || '-'}</td>
               <td style={{ padding:'10px 8px', borderBottom:'1px solid #f3f4f6', color:'#4b5563' }}>{item.renewalPolicy || 'KEEP_VERSION'}</td>
             </tr>)}
-            {subscriberModal.subscribers.length === 0 && <tr><td colSpan="6" style={{ padding:18, color:'#6b7280', textAlign:'center' }}>No subscribers on this version.</td></tr>}
+            {subscriberModal.subscribers.length === 0 && <tr><td colSpan="7" style={{ padding:18, color:'#6b7280', textAlign:'center' }}>No subscribers on this version.</td></tr>}
           </tbody>
         </table>}
       </div>
@@ -254,6 +335,13 @@ export default function SubscriptionSettings() {
         <h3 style={{ margin:'0 0 6px' }}>{plan.code} Plan</h3>
         <button type="button" onClick={() => openSubscribers(plan, plan)} style={{ border:0, background:'transparent', color:'#4f46e5', fontWeight:700, textDecoration:'underline', cursor:'pointer', padding:0, fontSize:13, marginBottom:6 }}>{plan.subscriberCount || 0} subscriber(s) - view expiry dates</button>
         <div style={{ color:'#6b7280', fontSize:13, marginBottom:18 }}>Active <strong>v{plan.versionNo || 1}</strong> · {plan.subscriberCount || 0} subscriber(s) on this version</div>
+        {isFreePlan(plan.code)
+          ? <div style={{ background:'#fffbeb', border:'1px solid #fde68a', color:'#92400e', borderRadius:10, padding:'10px 14px', fontSize:13, marginBottom:18 }}>
+              {plan.code} is the free plan every account starts on, so it is <strong>not grandfathered</strong>. A new version applies to <strong>all {plan.code} accounts immediately</strong> — lowering a limit reduces what existing users already have.
+            </div>
+          : <div style={{ background:'#f5f3ff', border:'1px solid #ddd6fe', color:'#5b21b6', borderRadius:10, padding:'10px 14px', fontSize:13, marginBottom:18 }}>
+              Paid plan: a new version applies to <strong>new purchases only</strong>. Current subscribers keep the benefits they paid for until they renew.
+            </div>}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:14 }}>
           {[['price','Price (VND)',1],['durationMonth','Duration (Months)',1],['maxStorage','Max Storage (MB)',1],['maxQuiz','Max Quizzes/Month',-1]].map(([field,label,min]) => <div className="as-form-group" key={field}><label className="as-form-label">{label}</label><input className="as-form-input" type="number" min={min} value={plan[field] ?? 0} onChange={e => change(plan.code, field, Number(e.target.value))}/></div>)}
           {[['monthlyDiscount','Monthly Discount (%)'],['yearlyDiscount','Yearly Discount (%)']].map(([field,label]) => <div className="as-form-group" key={field}><label className="as-form-label">{label}</label><input className="as-form-input" type="number" min="0" max="100" step="0.01" value={plan[field] ?? 0} onChange={e => change(plan.code, field, Math.min(100, Math.max(0, Number(e.target.value))))}/></div>)}

@@ -25,7 +25,8 @@ export default function AdminPlanManagementPage() {
   return <div className="as-page">
     <div><h1 className="as-page-title">Plan Management</h1><p className="as-page-sub">Manage payment pricing, immutable benefit versions, grandfathering and renewal behavior.</p></div>
     <div style={{ background:'#eef2ff', border:'1px solid #c7d2fe', color:'#3730a3', padding:16, borderRadius:12 }}>
-      New purchases use the active version. Existing subscriptions retain their purchased version until their renewal policy moves them forward.
+      <strong>Paid plans (Plus, Pro):</strong> new purchases use the active version; existing subscriptions keep the version they paid for until their renewal policy moves them forward.
+      <div style={{ marginTop:6 }}><strong>Basic:</strong> the free plan every account starts on. It is not grandfathered — all Basic accounts always follow the active version, so editing it takes effect for existing users too.</div>
     </div>
     <SubscriptionSettings />
     <div className="as-section">
