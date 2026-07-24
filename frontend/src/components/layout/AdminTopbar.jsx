@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationPanel from '../common/NotificationPanel';
+import useUnreadNotifications from '../../hooks/useUnreadNotifications';
 import logoImg from '../../assets/logos/logo.png';
 
 export default function AdminTopbar() {
   const [showNotifications, setShowNotifications] = useState(false);
-  const [hasUnread, setHasUnread] = useState(true);
+  const { hasUnread, setUnreadCount } = useUnreadNotifications();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ export default function AdminTopbar() {
           {showNotifications && (
             <NotificationPanel
               onClose={() => setShowNotifications(false)}
-              onAllRead={() => setHasUnread(false)}
+              onUnreadChange={setUnreadCount}
             />
           )}
         </div>

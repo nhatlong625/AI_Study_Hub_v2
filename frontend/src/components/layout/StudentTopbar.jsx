@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TopbarSearchDropdown from "../common/TopbarSearchDropdown";
 import NotificationPanel from "../common/NotificationPanel";
+import useUnreadNotifications from "../../hooks/useUnreadNotifications";
 import logoImg from "../../assets/logos/logo.png";
 import { userService } from "../../services/userService";
 import { documentApi, semesterApi } from "../../services/libraryApi";
@@ -67,7 +68,7 @@ function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick }) {
 
   const [query, setQuery] = useState("");
   const [showNotifications, setShowNotifications] = useState(false);
-  const [hasUnread, setHasUnread] = useState(true);
+  const { hasUnread, setUnreadCount } = useUnreadNotifications();
   const [currentUser, setCurrentUser] = useState(getCurrentUser);
   const [searchCourses, setSearchCourses] = useState([]);
   const [searchDocuments, setSearchDocuments] = useState([]);
@@ -315,7 +316,7 @@ function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick }) {
           {showNotifications && (
             <NotificationPanel
               onClose={() => setShowNotifications(false)}
-              onAllRead={() => setHasUnread(false)}
+              onUnreadChange={setUnreadCount}
             />
           )}
         </div>
@@ -327,28 +328,42 @@ function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick }) {
 }
 
 function NotificationButton() {
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { hasUnread, setUnreadCount } = useUnreadNotifications();
+
   return (
-    <button
-      className="relative p-1.5 flex items-center justify-center rounded-full text-[#4a4857] bg-transparent border-none cursor-pointer hover:bg-[#f5f4f8] transition-colors"
-      type="button"
-      aria-label="Notifications"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+    <div className="relative">
+      <button
+        onClick={() => setShowNotifications((v) => !v)}
+        className="relative p-1.5 flex items-center justify-center rounded-full text-[#4a4857] bg-transparent border-none cursor-pointer hover:bg-[#f5f4f8] transition-colors"
+        type="button"
+        aria-label="Notifications"
       >
-        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-      </svg>
-      <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full border-[1.5px] border-white" />
-    </button>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </svg>
+        {hasUnread && (
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full border-[1.5px] border-white" />
+        )}
+      </button>
+      {showNotifications && (
+        <NotificationPanel
+          onClose={() => setShowNotifications(false)}
+          onUnreadChange={setUnreadCount}
+        />
+      )}
+    </div>
   );
 }
 
