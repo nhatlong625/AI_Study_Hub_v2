@@ -7,6 +7,7 @@ import { documentApi, semesterApi } from "../../services/libraryApi";
 import ShareDocumentModal from "../../components/common/ShareDocumentModal";
 import UpgradePricingModal from "../../components/student/UpgradePricingModal";
 import { useHistoryContext } from "../../hooks/useHistory";
+import { formatStorageMb } from "../../utils/formatStorage";
 
 function parseStorageLimitError(message) {
   // Format: "STORAGE_LIMIT_REACHED:usedMb:maxMb"
@@ -962,9 +963,9 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
               <p className="text-xs text-amber-600 mb-3">
                 You've used{" "}
                 <span className="font-bold">
-                  {(limitInfo.used / 1024).toFixed(1)} GB
+                  {formatStorageMb(limitInfo.used)}
                 </span>{" "}
-                of your {(limitInfo.max / 1024).toFixed(0)} GB storage quota.
+                of your {formatStorageMb(limitInfo.max)} storage quota.
                 Upgrade your plan to get more storage.
               </p>
               <div className="h-1.5 rounded-full bg-amber-200 overflow-hidden mb-3">

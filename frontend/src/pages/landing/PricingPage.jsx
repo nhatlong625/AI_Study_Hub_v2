@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Navbar from "../../components/landing/Navbar";
 import Footer from "../../components/landing/Footer";
 import socialProofImg from "../../assets/images/social-proof.png";
+import { formatStorageMb } from "../../utils/formatStorage";
 import {
   formatVnd,
   getPlanDiscount,
@@ -54,7 +55,7 @@ function buildFeatureList(source, fallbackFeatures = []) {
   const maxStorageMb = Number(source?.maxStorage);
   const maxQuizValue = Number(source?.maxQuiz);
   const maxStorage = Number.isFinite(maxStorageMb) && maxStorageMb > 0
-    ? maxStorageMb / 1024
+    ? formatStorageMb(maxStorageMb)
     : null;
   const maxQuiz = maxQuizValue === -1
     ? "Unlimited"
@@ -69,7 +70,7 @@ function buildFeatureList(source, fallbackFeatures = []) {
 
   return [
     ...(maxQuiz !== null ? [{ label: `${maxQuiz} quiz generations/month`, included: true }] : []),
-    ...(maxStorage !== null ? [{ label: `${maxStorage}GB cloud storage`, included: true }] : []),
+    ...(maxStorage !== null ? [{ label: `${maxStorage} cloud storage`, included: true }] : []),
     ...filteredFeatures,
   ];
 }
