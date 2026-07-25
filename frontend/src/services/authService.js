@@ -1,8 +1,4 @@
-const API_ROOT = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:8080/api"
-).replace(/\/$/, "");
+import { API_BASE_URL as API_ROOT } from "../config/api";
 const API_BASE = API_ROOT.endsWith("/auth") ? API_ROOT : `${API_ROOT}/auth`;
 
 async function request(path, options = {}) {
