@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:8080/api"
-).replace(/\/$/, "");
+import { API_BASE_URL } from "../../config/api";
 
-export default function NotificationPanel({ onClose, onAllRead }) {
+export default function NotificationPanel({ onClose, onUnreadChange }) {
   const [notifications, setNotifications] = useState([]);
   const storedUser = (() => {
     try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
@@ -23,10 +19,13 @@ export default function NotificationPanel({ onClose, onAllRead }) {
         return response.json();
       })
       .then((data) => {
-        if (!cancelled) setNotifications((Array.isArray(data) ? data : []).map(item => ({
+        if (cancelled) return;
+        const items = (Array.isArray(data) ? data : []).map(item => ({
           ...item,
           time: item.time || item.createdAt || '',
-        })));
+        }));
+        setNotifications(items);
+        onUnreadChange?.(items.filter((n) => n.isUnread).length);
       })
       .catch(() => {
         if (!cancelled) setNotifications([]);
@@ -36,10 +35,12 @@ export default function NotificationPanel({ onClose, onAllRead }) {
     };
   }, [userId]);
 
+  // Report the remaining unread count on every change so the bell badge clears as soon as the
+  // last unread item is read, and stays lit while any remain.
   const markRead = (updater) => {
     setNotifications((prev) => {
       const next = updater(prev);
-      if (next.every((n) => !n.isUnread)) onAllRead?.();
+      onUnreadChange?.(next.filter((n) => n.isUnread).length);
       return next;
     });
   };
