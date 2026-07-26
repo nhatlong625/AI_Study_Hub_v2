@@ -88,17 +88,6 @@ const TABS = [
     ),
   },
   {
-    id: "preferences",
-    label: "Preferences",
-    desc: "Language, timezone and display",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
-      </svg>
-    ),
-  },
-  {
     id: "notifications",
     label: "Notifications",
     desc: "Manage your notifications",
@@ -405,94 +394,6 @@ function AccountTab({ profile, userId, onProfileUpdated }) {
   );
 }
 
-// ── Preferences Tab ──────────────────────────────────────────────────────────
-function PreferencesTab({ userId }) {
-  const [language, setLanguage] = useState("en");
-  const [timezone, setTimezone] = useState("Asia/Ho_Chi_Minh");
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("pref_dark_mode") === "true");
-  const [saved, setSaved] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!userId) return;
-    userService.getSettings(userId).then((s) => {
-      if (s.language) setLanguage(s.language);
-      if (s.timezone) setTimezone(s.timezone);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [userId]);
-
-  async function save() {
-    localStorage.setItem("pref_dark_mode", darkMode);
-    await userService.updateSettings(userId, { language, timezone });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
-
-  const prefItems = [
-    {
-      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>,
-      label: "Language", desc: "Choose your preferred language",
-      control: (
-        <select value={language} onChange={(e) => setLanguage(e.target.value)}
-          className="w-52 px-4 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none focus:border-indigo-400 transition-colors appearance-none cursor-pointer">
-          <option value="en">English</option>
-          <option value="vi">Tiếng Việt</option>
-        </select>
-      ),
-    },
-    {
-      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
-      label: "Timezone", desc: "Set your current timezone",
-      control: (
-        <select value={timezone} onChange={(e) => setTimezone(e.target.value)}
-          className="w-52 px-4 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none focus:border-indigo-400 transition-colors appearance-none cursor-pointer">
-          <option value="Asia/Ho_Chi_Minh">(GMT+07:00) Bangkok, Hanoi, Jakarta</option>
-          <option value="Asia/Singapore">(GMT+08:00) Singapore, Kuala Lumpur</option>
-          <option value="Asia/Tokyo">(GMT+09:00) Tokyo, Seoul</option>
-          <option value="Europe/London">(GMT+00:00) London</option>
-          <option value="America/New_York">(GMT-05:00) New York</option>
-          <option value="America/Los_Angeles">(GMT-08:00) Los Angeles</option>
-        </select>
-      ),
-    },
-    {
-      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
-      label: "Dark Mode", desc: "Switch between light and dark theme",
-      control: (
-        <select value={darkMode ? "dark" : "light"} onChange={(e) => setDarkMode(e.target.value === "dark")}
-          className="w-52 px-4 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none focus:border-indigo-400 transition-colors appearance-none cursor-pointer">
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      ),
-    },
-  ];
-
-  return (
-    <SectionCard title="Preferences">
-      <div className="flex flex-col divide-y divide-gray-100">
-        {prefItems.map((item, i) => (
-          <div key={i} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0">{item.icon}</div>
-              <div>
-                <p className="text-sm font-semibold text-gray-800">{item.label}</p>
-                <p className="text-xs text-gray-400">{item.desc}</p>
-              </div>
-            </div>
-            {item.control}
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-end pt-5 mt-2 border-t border-gray-100">
-        <button onClick={save} className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors">
-          {saved ? "Saved ✓" : "Save Preferences"}
-        </button>
-      </div>
-    </SectionCard>
-  );
-}
 
 // ── Notifications Tab ────────────────────────────────────────────────────────
 function NotificationsTab({ userId }) {
@@ -510,12 +411,7 @@ function NotificationsTab({ userId }) {
     setSaving(true);
     try {
       await userService.updateSettings(userId, {
-        emailNotifications: settings.emailNotifications,
         pushNotifications: settings.pushNotifications,
-        learningNotifications: settings.learningNotifications,
-        aiNotifications: settings.aiNotifications,
-        achievementNotifications: settings.achievementNotifications,
-        securityNotifications: settings.securityNotifications,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -527,12 +423,7 @@ function NotificationsTab({ userId }) {
   if (!settings) return <div className="text-sm text-gray-400 py-8 text-center">Loading...</div>;
 
   const items = [
-    { key: "learningNotifications", label: "Learning Notifications", desc: "Get notified about your study progress and upcoming tasks" },
-    { key: "aiNotifications", label: "AI Assistant Notifications", desc: "Receive tips and insights from your personal AI tutor" },
-    { key: "emailNotifications", label: "Email Notifications", desc: "Manage the emails you receive about your account activity" },
     { key: "pushNotifications", label: "Push Notifications", desc: "Allow notifications on your browser or desktop" },
-    { key: "achievementNotifications", label: "Achievement Notifications", desc: "Get alerts when you earn badges or hit study milestones" },
-    { key: "securityNotifications", label: "Security Notifications", desc: "Important alerts about your account login and security" },
   ];
 
   return (
@@ -624,31 +515,15 @@ function ChangePasswordModal({ userId, onClose }) {
 
 // ── Privacy Tab ──────────────────────────────────────────────────────────────
 function PrivacyTab({ userId }) {
-  const [settings, setSettings] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [showPwModal, setShowPwModal] = useState(false);
-  const [savingPrivacy, setSavingPrivacy] = useState(false);
-  const [privacySaved, setPrivacySaved] = useState(false);
   const [deletingChat, setDeletingChat] = useState(false);
   const [showDeleteChatConfirm, setShowDeleteChatConfirm] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
-    userService.getSettings(userId).then(setSettings).catch(() => {});
     userService.getSessions(userId).then(setSessions).catch(() => {});
   }, [userId]);
-
-  async function savePrivacy() {
-    if (!settings || !userId) return;
-    setSavingPrivacy(true);
-    try {
-      await userService.updateSettings(userId, { profileVisibility: settings.profileVisibility, showStreak: settings.showStreak });
-      setPrivacySaved(true);
-      setTimeout(() => setPrivacySaved(false), 2000);
-    } finally {
-      setSavingPrivacy(false);
-    }
-  }
 
   async function revokeSession(tokenId) {
     await userService.revokeSession(userId, tokenId);
@@ -735,29 +610,6 @@ function PrivacyTab({ userId }) {
           </div>
         )}
       </SectionCard>
-
-      {settings && (
-        <SectionCard title="Privacy Preferences">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-800">Show profile publicly</p>
-                <p className="text-xs text-gray-400">Allow others to view your profile</p>
-              </div>
-              <Toggle
-                checked={settings.profileVisibility === "Public"}
-                onChange={(val) => setSettings((s) => ({ ...s, profileVisibility: val ? "Public" : "Private" }))}
-              />
-            </div>
-            <div className="flex justify-end pt-2 border-t border-gray-100">
-              <button onClick={savePrivacy} disabled={savingPrivacy}
-                className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-60">
-                {savingPrivacy ? "Saving..." : privacySaved ? "Saved ✓" : "Save Changes"}
-              </button>
-            </div>
-          </div>
-        </SectionCard>
-      )}
 
       <SectionCard title="Data & Permissions">
         <div className="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-100">
@@ -1105,7 +957,6 @@ export default function StudentSettingsPage() {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {activeTab === "account" && <AccountTab profile={profile} userId={userId} onProfileUpdated={(updated) => setProfile(updated)} />}
-          {activeTab === "preferences" && <PreferencesTab userId={userId} />}
           {activeTab === "notifications" && <NotificationsTab userId={userId} />}
           {activeTab === "privacy" && <PrivacyTab userId={userId} />}
           {activeTab === "billing" && <BillingTab userId={userId} />}

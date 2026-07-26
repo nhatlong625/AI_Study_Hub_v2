@@ -159,6 +159,33 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareId } = {}) {
     };
   }, [documentId]);
 
+  // Study Time: bao nhip cho backend trong luc user thuc su dang doc.
+  // Chi dem khi tab dang hien - de tab chay nen ca dem khong duoc tinh la hoc.
+  // Nhip cuoi duoc gui luc unmount de khong mat quang thoi gian do dang.
+  useEffect(() => {
+    if (!doc?.documentId || publicAccess) return undefined;
+
+    const HEARTBEAT_SECONDS = 30;
+    let elapsed = 0;
+
+    const tick = () => {
+      if (document.hidden) return;
+      elapsed += 1;
+      if (elapsed >= HEARTBEAT_SECONDS) {
+        documentApi.sendReadingHeartbeat(doc.documentId, elapsed);
+        elapsed = 0;
+      }
+    };
+
+    const timer = setInterval(tick, 1000);
+    return () => {
+      clearInterval(timer);
+      if (elapsed > 0) {
+        documentApi.sendReadingHeartbeat(doc.documentId, elapsed);
+      }
+    };
+  }, [doc?.documentId, publicAccess]);
+
   useEffect(() => {
     if (!doc?.documentId) return undefined;
     let objectUrl = "";

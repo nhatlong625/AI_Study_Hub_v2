@@ -180,6 +180,19 @@ export const documentApi = {
     return res.json();
   },
 
+  // Bao cho backend biet user van dang doc tai lieu, de tinh Study Time.
+  // Loi o day khong duoc lam gian doan viec doc nen nuot luon, khong throw.
+  sendReadingHeartbeat: async (documentId, seconds) => {
+    try {
+      await fetch(
+        `${BASE_URL}/documents/${documentId}/reading-heartbeat?seconds=${seconds}`,
+        { method: "POST", headers: getHeaders(), keepalive: true },
+      );
+    } catch {
+      /* mat mang hoac dong tab - bo qua, nhip sau se bu */
+    }
+  },
+
   // Load one document by ID.
   getById: async (documentId) => {
     const res = await fetch(`${BASE_URL}/documents/${documentId}`, {
