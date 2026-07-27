@@ -21,7 +21,7 @@ public class ChatController {
     private final CurrentUser currentUser;
 
     @GetMapping("/sessions")
-    public ResponseEntity<List<ChatSessionDto>> listSessions(@RequestParam Integer userId) {
+    public ResponseEntity<List<ChatSessionDto>> listSessions() {
         return ResponseEntity.ok(chatService.listSessions(currentUser.id()));
     }
 
@@ -32,16 +32,12 @@ public class ChatController {
     }
 
     @GetMapping("/sessions/{sessionId}/messages")
-    public ResponseEntity<List<ChatMessageDto>> listMessages(
-            @PathVariable Integer sessionId,
-            @RequestParam(required = false) Integer userId) {
+    public ResponseEntity<List<ChatMessageDto>> listMessages(@PathVariable Integer sessionId) {
         return ResponseEntity.ok(chatService.listMessages(sessionId, currentUser.id()));
     }
 
     @DeleteMapping("/sessions/{sessionId}")
-    public ResponseEntity<Void> deleteSession(
-            @PathVariable Integer sessionId,
-            @RequestParam(required = false) Integer userId) {
+    public ResponseEntity<Void> deleteSession(@PathVariable Integer sessionId) {
         chatService.deleteSession(sessionId, currentUser.id());
         return ResponseEntity.noContent().build();
     }
