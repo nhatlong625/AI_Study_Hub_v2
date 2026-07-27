@@ -99,6 +99,17 @@ export const adminService = {
   }),
   getDocuments: async () => request('/api/admin/document-management'),
   getDocumentsBySubject: async (subjectId) => request(`/api/admin/library/courses/${subjectId}/documents`),
+  getDocumentTrash: async () => request('/api/admin/documents/trash'),
+  restoreDocumentFromTrash: async (id) => request(`/api/admin/documents/trash/${id}/restore`, {
+    method: 'POST',
+  }),
+  purgeDocumentFromTrash: async (id) => request(`/api/admin/documents/trash/${id}`, {
+    method: 'DELETE',
+  }),
+  updateDocument: async (id, data) => request(`/api/admin/document-management/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
   updateDocumentStatus: async (id, status, rejectReason = '') => request(`/api/admin/document-management/${id}/status`, {
     method: 'PUT',
     body: JSON.stringify({ status, rejectReason }),

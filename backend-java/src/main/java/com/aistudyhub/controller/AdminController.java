@@ -478,6 +478,31 @@ public class AdminController {
         return jdbc.queryForList(documentSql("ORDER BY d.document_id DESC"), Map.of()).stream().map(this::documentShape).toList();
     }
 
+    @PutMapping("/document-management/{id}")
+    public Map<String, Object> updateDocument(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
+        String status = str(body, "status", "Pending");
+        String visibilityStatus = switch (status) {
+            case "Approved" -> "PUBLIC";
+            case "Rejected" -> "PRIVATE";
+            default -> "PENDING_REVIEW";
+        };
+        int rows = jdbc.update("""
+            UPDATE dbo.DOCUMENT
+            SET title = :title,
+                subject_id = :subjectId,
+                document_type = :type,
+                visibility_status = :visibilityStatus,
+                updated_at = GETDATE()
+            WHERE document_id = :id
+            """, params("id", id)
+                .addValue("title", required(body, "title"))
+                .addValue("subjectId", number(body.get("subjectId")).intValue())
+                .addValue("type", str(body, "type", "PDF"))
+                .addValue("visibilityStatus", visibilityStatus));
+        if (rows == 0) throw notFound("Document not found.");
+        return documentShape(one(documentSql("WHERE d.document_id = :id"), Map.of("id", id)));
+    }
+
     @PutMapping("/document-management/{id}/status")
     public Map<String, Object> updateDocumentStatus(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
         String status = str(body, "status", "Pending");
