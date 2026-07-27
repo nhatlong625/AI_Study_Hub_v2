@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { adminService } from '../../services/adminService';
+import { formatStorageMb } from '../../utils/formatStorage';
 
 const SUGGESTED_FEATURES = {
   BASIC: [
@@ -18,6 +19,10 @@ const SUGGESTED_FEATURES = {
   ],
 };
 
+// Basic is handed to every new account for free, so it carries no purchase to grandfather:
+// the backend resolves its quota from the active version for all accounts, old and new.
+const isFreePlan = code => String(code || '').toUpperCase() === 'BASIC';
+
 export default function SubscriptionSettings() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +32,9 @@ export default function SubscriptionSettings() {
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null);
   const [subscriberModal, setSubscriberModal] = useState(null);
   const [subscriberLoading, setSubscriberLoading] = useState(false);
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState([]);
+  const [migrating, setMigrating] = useState(false);
+  const [migrateResult, setMigrateResult] = useState(null);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [newPlan, setNewPlan] = useState({
     planName: '',
@@ -89,7 +97,11 @@ export default function SubscriptionSettings() {
         featuresJson: JSON.stringify(plan.features || []),
       });
       await loadPlans();
-      setSuccess(`Created a new ${plan.code} version. Existing subscribers keep their purchased benefits.`);
+      // Basic is the free plan every account gets, so it is not grandfathered: existing accounts
+      // follow the active version immediately. Paid plans keep the version they bought.
+      setSuccess(isFreePlan(plan.code)
+        ? `Created a new ${plan.code} version. All ${plan.code} accounts now use these limits, including existing ones.`
+        : `Created a new ${plan.code} version. Existing subscribers keep the benefits they purchased until they renew.`);
     } catch (err) { setError(err.message || 'Could not create plan version.'); }
     finally { setSaving(''); }
   };
