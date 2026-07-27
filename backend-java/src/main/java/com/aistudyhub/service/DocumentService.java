@@ -86,6 +86,7 @@ public class DocumentService {
     private final WebClient pythonAiWebClient;
     private final EmailService emailService;
     private final JdbcTemplate jdbcTemplate;
+    private final PlanQuotaService planQuotaService;
     private final ApplicationEventPublisher eventPublisher;
 
     public record DocumentFile(String fileName, MediaType mediaType, byte[] bytes) {}
@@ -944,21 +945,10 @@ public class DocumentService {
     // Normalized note.
 
     private void checkStorageLimit(Integer userId, long newFileSize) {
-        Integer maxStorageMb;
-        try {
-            maxStorageMb = jdbcTemplate.queryForObject("""
-                    SELECT TOP 1 pv.max_storage
-                    FROM dbo.USER_SUBSCRIPTION us
-                    JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
-                    WHERE us.user_id = ? AND us.status = 'Active'
-                    ORDER BY us.end_date DESC, us.subscription_id DESC
-                    """, Integer.class, userId);
-        } catch (Exception e) {
-            maxStorageMb = 1024;
-        }
-        if (maxStorageMb == null) maxStorageMb = 1024;
-
-        long maxStorageBytes = (long) maxStorageMb * 1024L * 1024L;
+        // Resolved through PlanQuotaService so the enforced limit always matches the quota
+        // LibraryService.getOverview displays.
+        PlanQuotaService.PlanQuota quota = planQuotaService.getQuota(userId);
+        long maxStorageBytes = quota.maxStorageBytes();
 
         Long usedBytes;
         try {
@@ -973,8 +963,10 @@ public class DocumentService {
         if (usedBytes == null) usedBytes = 0L;
 
         if (usedBytes + newFileSize > maxStorageBytes) {
-            long usedMb = usedBytes / (1024L * 1024L);
-            throw new BadRequestException("STORAGE_LIMIT_REACHED:" + usedMb + ":" + maxStorageMb);
+            // Raw byte values let the client format precisely (e.g. "0.5 GB") and explain that the
+            // file being uploaded is what pushes the account over quota, not the current usage alone.
+            throw new BadRequestException(
+                    "STORAGE_LIMIT_REACHED:" + usedBytes + ":" + maxStorageBytes + ":" + newFileSize);
         }
     }
 
