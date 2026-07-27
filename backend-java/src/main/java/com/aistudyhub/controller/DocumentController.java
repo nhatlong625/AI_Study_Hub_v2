@@ -6,6 +6,7 @@ import com.aistudyhub.dto.response.DocumentShareResponse;
 import com.aistudyhub.dto.response.DocumentResponse;
 import com.aistudyhub.dto.response.DocumentSummarizeResponse;
 import com.aistudyhub.dto.response.UserShareResponse;
+import com.aistudyhub.dto.response.TrashDocumentResponse;
 import com.aistudyhub.service.DocumentService;
 import com.aistudyhub.security.CurrentUser;
 import jakarta.validation.Valid;
@@ -129,6 +130,27 @@ public class DocumentController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/trash")
+    public ResponseEntity<List<TrashDocumentResponse>> getTrash() {
+        return ResponseEntity.ok(documentService.getTrashForUser(currentUser.id()));
+    }
+
+    @GetMapping("/trash/{id}/preview")
+    public ResponseEntity<ByteArrayResource> previewTrash(@PathVariable Integer id) {
+        return fileResponse(documentService.getTrashFile(id, currentUser.id(), false), false);
+    }
+
+    @PostMapping("/trash/{id}/restore")
+    public ResponseEntity<TrashDocumentResponse> restore(@PathVariable Integer id) {
+        return ResponseEntity.ok(documentService.restore(id, currentUser.id(), false));
+    }
+
+    @DeleteMapping("/trash/{id}")
+    public ResponseEntity<Void> purge(@PathVariable Integer id) {
+        documentService.purge(id, currentUser.id(), false);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Tóm tắt tài liệu bằng AI (proxy sang Python AI service), kết quả lưu vào AI_SUMMARY. */
     @PostMapping("/{id}/summarize")
     public ResponseEntity<DocumentSummarizeResponse> summarize(
@@ -145,12 +167,9 @@ public class DocumentController {
     /**
      * Tạo hoặc lấy lại link share ACTIVE cho document.
      * Idempotent: bấm nhiều lần vẫn trả cùng 1 link.
-     * TODO: sau B1, lấy userId từ JWT thay vì RequestParam.
      */
     @PostMapping("/{id}/share")
-    public ResponseEntity<DocumentShareResponse> createShareLink(
-            @PathVariable Integer id,
-            @RequestParam(defaultValue = "1") Integer userId) {
+    public ResponseEntity<DocumentShareResponse> createShareLink(@PathVariable Integer id) {
         Integer authenticatedUserId = currentUser.id();
         documentService.requireOwner(id, authenticatedUserId);
         return ResponseEntity.ok(documentService.createOrGetShareLink(id, authenticatedUserId));
@@ -158,12 +177,9 @@ public class DocumentController {
 
     /**
      * Hủy link share ACTIVE — link cũ không dùng được nữa.
-     * TODO: sau B1, lấy userId từ JWT.
      */
     @DeleteMapping("/{id}/share")
-    public ResponseEntity<Void> revokeShareLink(
-            @PathVariable Integer id,
-            @RequestParam(defaultValue = "1") Integer userId) {
+    public ResponseEntity<Void> revokeShareLink(@PathVariable Integer id) {
         Integer authenticatedUserId = currentUser.id();
         documentService.requireOwner(id, authenticatedUserId);
         documentService.revokeShareLink(id, authenticatedUserId);
@@ -196,8 +212,7 @@ public class DocumentController {
     }
 
     @GetMapping("/shared-with-me")
-    public ResponseEntity<List<UserShareResponse>> getSharedWithMe(
-            @RequestParam(defaultValue = "1") Integer userId) {
+    public ResponseEntity<List<UserShareResponse>> getSharedWithMe() {
         return ResponseEntity.ok(documentService.getSharedWithMe(currentUser.id()));
     }
 

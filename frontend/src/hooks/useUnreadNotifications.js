@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+<<<<<<< HEAD
+import { API_BASE_URL } from "../config/api";
+=======
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ||
   import.meta.env.VITE_API_URL ||
   "http://localhost:8080/api"
 ).replace(/\/$/, "");
+>>>>>>> origin/main
 
 /**
  * Tracks whether the signed-in user has unread notifications, so the bell badge reflects the

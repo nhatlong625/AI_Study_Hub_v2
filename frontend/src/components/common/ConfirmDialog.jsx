@@ -12,8 +12,11 @@ export default function ConfirmDialog({
 
   const handleConfirm = async () => {
     setLoading(true);
-    await onConfirm?.();
-    setLoading(false);
+    try {
+      await onConfirm?.();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,6 +90,7 @@ export default function ConfirmDialog({
         <div className="flex items-center gap-3 px-7 pb-7">
           <button
             onClick={onCancel}
+            disabled={loading}
             className="flex-1 py-2.5 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
           >
             Cancel

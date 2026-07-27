@@ -13,6 +13,7 @@ import com.aistudyhub.exception.TooManyRequestsException;
 import com.aistudyhub.dto.response.AdminDocumentResponse;
 import com.aistudyhub.dto.response.DocumentShareResponse;
 import com.aistudyhub.dto.response.UserShareResponse;
+import com.aistudyhub.dto.response.TrashDocumentResponse;
 import com.aistudyhub.entity.DocumentShare;
 import com.aistudyhub.entity.User;
 import com.aistudyhub.event.DocumentUploadedEvent;
@@ -53,6 +54,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -88,6 +90,7 @@ public class DocumentService {
     private final JdbcTemplate jdbcTemplate;
     private final PlanQuotaService planQuotaService;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.aistudyhub.security.CurrentUser currentUser;
 
     public record DocumentFile(String fileName, MediaType mediaType, byte[] bytes) {}
     private record UploadPayload(String fileName, String documentType, MediaType mediaType, byte[] bytes) {}
@@ -169,7 +172,7 @@ public class DocumentService {
 
     // Normalized note.
     public List<DocumentResponse> getBySubject(Integer subjectId) {
-        return documentRepository.findBySubjectId(subjectId).stream().map(this::toMetadataDto).collect(Collectors.toList());
+        return documentRepository.findBySubjectIdAndDeletedAtIsNull(subjectId).stream().map(this::toMetadataDto).collect(Collectors.toList());
     }
 
     public List<DocumentResponse> getBySubjectAndUser(Integer subjectId, Integer userId) {
@@ -190,8 +193,9 @@ public class DocumentService {
                        d.created_at,
                        d.updated_at
                 FROM dbo.DOCUMENT d
-                WHERE d.subject_id = ?
-                  AND d.user_id = ?
+                 WHERE d.subject_id = ?
+                   AND d.user_id = ?
+                   AND d.deleted_at IS NULL
                 ORDER BY d.created_at DESC, d.document_id DESC
                 """, (rs, rowNum) -> {
             DocumentResponse response = new DocumentResponse();
@@ -216,7 +220,7 @@ public class DocumentService {
     }
 
     private boolean isReadableByUser(Document document, Integer userId) {
-        if (document == null || userId == null) return false;
+        if (document == null || document.getDeletedAt() != null || userId == null) return false;
         if (document.getUserId() != null && document.getUserId().equals(userId)) return true;
         if ("PUBLIC".equalsIgnoreCase(document.getVisibilityStatus())) return true;
         return documentShareRepository
@@ -231,22 +235,23 @@ public class DocumentService {
 
     /* Section */
     public List<DocumentResponse> getPublicBySubject(Integer subjectId) {
-        return documentRepository.findBySubjectIdAndVisibilityStatus(subjectId, "PUBLIC")
+        return documentRepository.findBySubjectIdAndVisibilityStatusAndDeletedAtIsNull(subjectId, "PUBLIC")
                 .stream().map(this::toMetadataDto).collect(Collectors.toList());
     }
 
     public List<DocumentResponse> getByUser(Integer userId) {
-        return documentRepository.findByUserId(userId).stream().map(this::toMetadataDto).collect(Collectors.toList());
+        return documentRepository.findByUserIdAndDeletedAtIsNull(userId).stream().map(this::toMetadataDto).collect(Collectors.toList());
     }
 
     public DocumentResponse getById(Integer id) {
-        return documentRepository.findById(id).map(this::toDto)
+        return documentRepository.findById(id).filter(this::isActive).map(this::toDto)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
     }
 
     public void requireOwner(Integer documentId, Integer userId) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        requireActive(doc);
         if (!doc.getUserId().equals(userId)) {
             throw new org.springframework.security.access.AccessDeniedException("Only the document owner can perform this action.");
         }
@@ -255,6 +260,11 @@ public class DocumentService {
     public void requireReadable(Integer documentId, Integer userId) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        requireActive(doc);
+        // Admin duyệt document nên đọc được mọi file, kể cả PRIVATE của user khác.
+        if (currentUser.isAdmin()) {
+            return;
+        }
         boolean owner = doc.getUserId().equals(userId);
         boolean publicDocument = "PUBLIC".equalsIgnoreCase(doc.getVisibilityStatus());
         boolean shared = documentShareRepository
@@ -269,7 +279,7 @@ public class DocumentService {
     public DocumentResponse getPublicById(Integer id) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
-        if (!"PUBLIC".equalsIgnoreCase(doc.getVisibilityStatus())) {
+        if (!isActive(doc) || !"PUBLIC".equalsIgnoreCase(doc.getVisibilityStatus())) {
             throw new ResourceNotFoundException("Public document not found: " + id);
         }
         return toDto(doc);
@@ -278,6 +288,7 @@ public class DocumentService {
     public DocumentSummarizeResponse getLatestSummary(Integer id) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
         String summary = aiSummaryRepository.findLatestFullFileSummary(id)
                 .orElseThrow(() -> new ResourceNotFoundException("AI summary not found: " + id));
         return new DocumentSummarizeResponse(doc.getDocumentId(), doc.getDocumentName(), summary, null, false, true);
@@ -299,17 +310,19 @@ public class DocumentService {
     public DocumentFile getFile(Integer id) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
         return new DocumentFile(doc.getDocumentName(), mediaTypeFor(doc.getDocumentType()), downloadFileBytes(doc));
     }
 
     public String getAiReadableText(Integer id) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
         return resolveSummarizableText(doc);
     }
 
     public List<DocumentResponse> getAll() {
-        return documentRepository.findAll().stream().map(this::toMetadataDto).collect(Collectors.toList());
+        return documentRepository.findAll().stream().filter(this::isActive).map(this::toMetadataDto).collect(Collectors.toList());
     }
 
     /**
@@ -329,6 +342,7 @@ public class DocumentService {
     public DocumentResponse updateVisibility(Integer id, String newStatus) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
 
         String current = doc.getVisibilityStatus();
 
@@ -365,6 +379,7 @@ public class DocumentService {
         }
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
         doc.setTitle(title.trim());
         return toMetadataDto(documentRepository.save(doc));
     }
@@ -372,7 +387,7 @@ public class DocumentService {
     // Normalized note.
     /* Section */
     public List<AdminDocumentResponse> getPendingForAdmin() {
-        return documentRepository.findByVisibilityStatus("PENDING_REVIEW")
+        return documentRepository.findByVisibilityStatusAndDeletedAtIsNull("PENDING_REVIEW")
                 .stream().map(this::toAdminDto).collect(Collectors.toList());
     }
 
@@ -381,6 +396,7 @@ public class DocumentService {
     public AdminDocumentResponse approveDocument(Integer id) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
         if (!"PENDING_REVIEW".equals(doc.getVisibilityStatus())) {
             throw new ConflictException("This document is not pending review.");
         }
@@ -405,6 +421,7 @@ public class DocumentService {
     public AdminDocumentResponse rejectDocument(Integer id, String reason) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
         if (!"PENDING_REVIEW".equals(doc.getVisibilityStatus())) {
             throw new ConflictException("This document is not pending review.");
         }
@@ -546,7 +563,7 @@ public class DocumentService {
                 .stream()
                 .map(share -> {
                     Document doc = documentRepository.findById(share.getDocumentId()).orElse(null);
-                    if (doc == null) return null;
+                    if (!isActive(doc)) return null;
                     User owner = userRepository.findById(share.getUserId()).orElse(null);
                     User recipient = userRepository.findById(share.getSharedToUserId()).orElse(null);
                     return toUserShareResponse(share, doc, owner, recipient);
@@ -618,10 +635,102 @@ public class DocumentService {
     public void delete(Integer id) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+        requireActive(doc);
+        doc.setDeletedAt(LocalDateTime.now());
+        doc.setDeletedByUserId(currentUser.id());
+        doc.setDeletedByRole(currentUser.isAdmin() ? "ADMIN" : "USER");
+        documentRepository.save(doc);
+    }
+
+    public List<TrashDocumentResponse> getTrashForUser(Integer userId) {
+        return documentRepository.findByUserIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(userId)
+                .stream().map(this::toTrashDto).toList();
+    }
+
+    public List<TrashDocumentResponse> getTrashForAdmin() {
+        return documentRepository.findByDeletedAtIsNotNullOrderByDeletedAtDesc()
+                .stream().map(this::toTrashDto).toList();
+    }
+
+    public DocumentFile getTrashFile(Integer id, Integer requesterId, boolean admin) {
+        Document doc = requireTrashed(id);
+        if (!admin && !doc.getUserId().equals(requesterId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You cannot access this trashed document.");
+        }
+        return new DocumentFile(doc.getDocumentName(), mediaTypeFor(doc.getDocumentType()), downloadFileBytes(doc));
+    }
+
+    @Transactional
+    public TrashDocumentResponse restore(Integer id, Integer requesterId, boolean admin) {
+        Document doc = requireTrashed(id);
+        if (!admin && !doc.getUserId().equals(requesterId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You cannot restore this document.");
+        }
+        doc.setDeletedAt(null);
+        doc.setDeletedByUserId(null);
+        doc.setDeletedByRole(null);
+        doc.setUpdatedAt(LocalDateTime.now());
+        return toTrashDto(documentRepository.save(doc));
+    }
+
+    @Transactional
+    public void purge(Integer id, Integer requesterId, boolean admin) {
+        Document doc = requireTrashed(id);
+        if (!admin && !doc.getUserId().equals(requesterId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You cannot permanently delete this document.");
+        }
+        purgeDocument(doc);
+    }
+
+    @Transactional
+    public int purgeExpiredDocuments() {
+        List<Document> expired = documentRepository.findByDeletedAtBefore(LocalDateTime.now().minusDays(30));
+        expired.forEach(this::purgeDocument);
+        return expired.size();
+    }
+
+    private void purgeDocument(Document doc) {
+        Integer id = doc.getDocumentId();
         deleteStoredFile(doc);
-        aiSummaryRepository.deleteByDocumentId(id);
-        documentShareRepository.deleteByDocumentId(id);
+        // Keep dependency deletion in one service so manual and scheduled purge behave identically.
+        purgeDocumentDependencies(id);
         documentRepository.deleteById(id);
+    }
+
+    private void purgeDocumentDependencies(Integer id) {
+        jdbcTemplate.update("""
+                DECLARE @documentId INT = ?;
+                DECLARE @QuestionIds TABLE (id INT);
+                DECLARE @QuizIds TABLE (id INT);
+                DECLARE @AttemptIds TABLE (id INT);
+
+                INSERT INTO @QuestionIds SELECT question_id FROM dbo.AI_QUESTION WHERE document_id = @documentId;
+                INSERT INTO @QuizIds SELECT quiz_id FROM dbo.QUIZ_TEST WHERE question_id IN (SELECT id FROM @QuestionIds);
+                INSERT INTO @AttemptIds
+                    SELECT attempt_id FROM dbo.TEST_ATTEMPT
+                    WHERE test_id IN (SELECT id FROM @QuizIds)
+                       OR question_id IN (SELECT id FROM @QuestionIds);
+
+                DELETE FROM dbo.USER_ANSWER WHERE attempt_id IN (SELECT id FROM @AttemptIds);
+                DELETE FROM dbo.TEST_RESULT WHERE attempt_id IN (SELECT id FROM @AttemptIds);
+                DELETE FROM dbo.TEST_ATTEMPT WHERE attempt_id IN (SELECT id FROM @AttemptIds);
+                DELETE FROM dbo.ANSWER_OPTION WHERE question_id IN (SELECT id FROM @QuizIds);
+                DELETE FROM dbo.QUIZ_TEST WHERE quiz_id IN (SELECT id FROM @QuizIds);
+                DELETE FROM dbo.STUDY_ACTIVITY
+                    WHERE document_id = @documentId
+                       OR summary_id IN (SELECT summary_id FROM dbo.AI_SUMMARY WHERE document_id = @documentId)
+                       OR session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id = @documentId)
+                       OR question_id IN (SELECT id FROM @QuestionIds);
+                DELETE FROM dbo.REPORT WHERE document_id = @documentId;
+                DELETE FROM dbo.COMMENT WHERE document_id = @documentId;
+                DELETE FROM dbo.CHAT_MESSAGE WHERE session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id = @documentId);
+                DELETE FROM dbo.CHAT_SESSION WHERE document_id = @documentId;
+                DELETE FROM dbo.AI_USAGE_LOG WHERE document_id = @documentId;
+                DELETE FROM dbo.AI_SUGGESTION WHERE document_id = @documentId;
+                DELETE FROM dbo.AI_SUMMARY WHERE document_id = @documentId;
+                DELETE FROM dbo.AI_QUESTION WHERE question_id IN (SELECT id FROM @QuestionIds);
+                DELETE FROM dbo.DOCUMENT_SHARE WHERE document_id = @documentId;
+                """, id);
     }
 
     /**
@@ -631,13 +740,13 @@ public class DocumentService {
      */
     @Transactional
     public void deleteAllByUserAndSubject(Integer userId, Integer subjectId) {
-        List<Document> docs = documentRepository.findByUserIdAndSubjectId(userId, subjectId);
+        List<Document> docs = documentRepository.findByUserIdAndSubjectIdAndDeletedAtIsNull(userId, subjectId);
         for (Document doc : docs) {
-            deleteStoredFile(doc);
-            aiSummaryRepository.deleteByDocumentId(doc.getDocumentId());
-            documentShareRepository.deleteByDocumentId(doc.getDocumentId());
+            doc.setDeletedAt(LocalDateTime.now());
+            doc.setDeletedByUserId(userId);
+            doc.setDeletedByRole("USER");
         }
-        documentRepository.deleteAll(docs);
+        documentRepository.saveAll(docs);
     }
 
     public void deleteStoredFile(Document doc) {
@@ -845,7 +954,56 @@ public class DocumentService {
         r.setUploadedAt(d.getUploadedAt());
         r.setCreatedAt(d.getCreatedAt());
         r.setUpdatedAt(d.getUpdatedAt());
+        r.setDeletedAt(d.getDeletedAt());
         return r;
+    }
+
+    private boolean isActive(Document document) {
+        return document != null && document.getDeletedAt() == null;
+    }
+
+    private void requireActive(Document document) {
+        if (!isActive(document)) {
+            throw new ResourceNotFoundException("Document not found: " + document.getDocumentId());
+        }
+    }
+
+    private Document requireTrashed(Integer id) {
+        Document doc = documentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Trashed document not found: " + id));
+        if (doc.getDeletedAt() == null) {
+            throw new ResourceNotFoundException("Trashed document not found: " + id);
+        }
+        return doc;
+    }
+
+    private TrashDocumentResponse toTrashDto(Document d) {
+        TrashDocumentResponse response = new TrashDocumentResponse();
+        response.setDocumentId(d.getDocumentId());
+        response.setUserId(d.getUserId());
+        response.setSubjectId(d.getSubjectId());
+        response.setTitle(d.getTitle());
+        response.setDocumentName(d.getDocumentName());
+        response.setDocumentType(d.getDocumentType());
+        response.setDocumentSize(d.getDocumentSize());
+        response.setDeletedAt(d.getDeletedAt());
+        response.setDeletedByRole(d.getDeletedByRole());
+        if (d.getDeletedAt() != null) {
+            LocalDateTime purgeAt = d.getDeletedAt().plusDays(30);
+            response.setPurgeAt(purgeAt);
+            long hours = Math.max(0, ChronoUnit.HOURS.between(LocalDateTime.now(), purgeAt));
+            response.setRemainingDays((hours + 23) / 24);
+        }
+        userRepository.findById(d.getUserId()).ifPresent(user -> {
+            response.setOwnerName(user.getFullName());
+            response.setOwnerEmail(user.getEmail());
+        });
+        subjectRepository.findById(d.getSubjectId()).ifPresent(subject -> {
+            response.setSubjectName(subject.getSubjectName());
+            semesterRepository.findById(subject.getSemesterId())
+                    .ifPresent(semester -> response.setSemesterName(semester.getSemesterName()));
+        });
+        return response;
     }
 
     private String toDownloadUrl(String storedUrl) {

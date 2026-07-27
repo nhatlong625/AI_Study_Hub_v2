@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:8080/api"
-).replace(/\/$/, "");
+import { API_BASE_URL } from "../../config/api";
 
 export default function NotificationPanel({ onClose, onUnreadChange }) {
   const [notifications, setNotifications] = useState([]);

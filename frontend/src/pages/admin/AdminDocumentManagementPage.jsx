@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminService } from '../../services/adminService';
+import AdminDocumentTrashModal from '../../components/admin/AdminDocumentTrashModal';
+import { API_BASE_URL as API_BASE } from '../../config/api';
 
 const TYPE_CFG = {
   PDF:  { bg: '#fee2e2', color: '#dc2626' },
@@ -17,8 +19,6 @@ const STATUS_CFG = {
 
 const STATUSES = ['All Status', 'Pending', 'Approved', 'Rejected'];
 const TYPES = ['All Types', 'PDF', 'DOCX', 'PPTX', 'XLSX', 'MP4'];
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/$/, '');
-
 function documentFileUrl(documentId, action) {
   if (!documentId) return '';
   return `${API_BASE}/documents/${documentId}/${action}`;
@@ -69,6 +69,15 @@ function EyeIcon() {
   );
 }
 
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 20h9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -110,7 +119,14 @@ function DocumentManagementPage() {
   const [approveDoc, setApproveDoc] = useState(null);
   const [rejectDoc, setRejectDoc] = useState(null);
   const [deleteDoc, setDeleteDoc] = useState(null);
+  const [editDoc, setEditDoc] = useState(null);
+  const [editForm, setEditForm] = useState({ title: '', semesterId: '', subjectId: '', type: 'PDF', status: 'Pending' });
+  const [semesterOptions, setSemesterOptions] = useState([]);
+  const [courseOptionsForEdit, setCourseOptionsForEdit] = useState([]);
+  const [editError, setEditError] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
 
   const loadDocuments = async () => {
     try {
@@ -127,6 +143,9 @@ function DocumentManagementPage() {
 
   useEffect(() => {
     loadDocuments();
+    adminService.getDocumentTrash()
+      .then(items => setTrashCount(Array.isArray(items) ? items.length : 0))
+      .catch(() => setTrashCount(0));
   }, []);
 
   useEffect(() => {
@@ -202,10 +221,71 @@ function DocumentManagementPage() {
       setError('');
       await adminService.deleteDocument(deleteDoc.id);
       setDocuments(current => current.filter(doc => doc.id !== deleteDoc.id));
+      setTrashCount(count => count + 1);
       setPreview(current => current?.id === deleteDoc.id ? null : current);
       setDeleteDoc(null);
     } catch (err) {
       setError(err.message || 'Could not delete document.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openEditDocument = async (document) => {
+    setEditDoc(document);
+    setEditError('');
+    setEditForm({
+      title: document.title || '',
+      semesterId: '',
+      subjectId: String(document.subjectId || ''),
+      type: String(document.type || 'PDF').toUpperCase(),
+      status: document.status || 'Pending',
+    });
+    try {
+      const semesters = await adminService.getLibrarySemesters();
+      const normalized = Array.isArray(semesters) ? semesters : [];
+      setSemesterOptions(normalized);
+      const matchingSemester = normalized.find(item => item.name === document.semester);
+      if (matchingSemester) {
+        const courses = await adminService.getLibraryCourses(matchingSemester.id);
+        setCourseOptionsForEdit(Array.isArray(courses) ? courses : []);
+        setEditForm(current => ({ ...current, semesterId: String(matchingSemester.id) }));
+      } else {
+        setCourseOptionsForEdit([]);
+      }
+    } catch (err) {
+      setEditError(err.message || 'Could not load course options.');
+    }
+  };
+
+  const handleEditSemesterChange = async (semesterId) => {
+    setEditForm(current => ({ ...current, semesterId, subjectId: '' }));
+    setCourseOptionsForEdit([]);
+    if (!semesterId) return;
+    try {
+      const courses = await adminService.getLibraryCourses(semesterId);
+      setCourseOptionsForEdit(Array.isArray(courses) ? courses : []);
+    } catch (err) {
+      setEditError(err.message || 'Could not load courses.');
+    }
+  };
+
+  const handleEditDocument = async (event) => {
+    event.preventDefault();
+    if (!editDoc) return;
+    try {
+      setIsSaving(true);
+      setEditError('');
+      const updatedDocument = await adminService.updateDocument(editDoc.id, {
+        title: editForm.title.trim(),
+        subjectId: Number(editForm.subjectId),
+        type: editForm.type,
+        status: editForm.status,
+      });
+      updateDocumentInState(updatedDocument);
+      setEditDoc(null);
+    } catch (err) {
+      setEditError(err.message || 'Could not update document.');
     } finally {
       setIsSaving(false);
     }
@@ -235,6 +315,15 @@ function DocumentManagementPage() {
 
   return (
     <>
+      {showTrash && (
+        <AdminDocumentTrashModal
+          onClose={() => setShowTrash(false)}
+          onChanged={(count) => {
+            setTrashCount(count);
+            loadDocuments();
+          }}
+        />
+      )}
       <div className="dm-page">
         <div>
           <h1 className="dm-title">Document Management</h1>
@@ -279,6 +368,15 @@ function DocumentManagementPage() {
               </div>
             ))}
             <span className="dm-filter-result">{filtered.length} documents</span>
+            <button
+              type="button"
+              onClick={() => setShowTrash(true)}
+              className="lib-create-btn"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px' }}
+            >
+              <TrashIcon />
+              Trash{trashCount > 0 ? ` (${trashCount})` : ''}
+            </button>
           </div>
 
           {error && <div className="dm-empty" style={{ color: '#dc2626' }}>{error}</div>}
@@ -332,6 +430,7 @@ function DocumentManagementPage() {
                       <td>
                         <div className="dm-actions">
                           <button className="dm-action-btn" title="Preview" onClick={() => setPreview(doc)}><EyeIcon /></button>
+                          <button className="dm-action-btn" title="Edit" onClick={() => openEditDocument(doc)}><PencilIcon /></button>
                           {doc.status === 'Pending' && (
                             <>
                               <button className="dm-action-btn dm-action-approve" title="Approve" onClick={() => setApproveDoc(doc)}><CheckIcon /></button>
@@ -414,6 +513,72 @@ function DocumentManagementPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {editDoc && (
+        <div className="lib-modal-overlay" onClick={() => !isSaving && setEditDoc(null)}>
+          <form className="lib-modal-card lib-modal-edit dm-edit-modal" onSubmit={handleEditDocument} onClick={e => e.stopPropagation()}>
+            <div className="dm-edit-header">
+              <div>
+                <h2 className="lib-modal-title">Edit Document</h2>
+                <p className="lib-modal-subtitle">Update document information without replacing the uploaded file.</p>
+              </div>
+              <button type="button" className="rq-close-btn" aria-label="Close edit form" disabled={isSaving} onClick={() => setEditDoc(null)}>x</button>
+            </div>
+            <div className="lib-modal-divider" />
+
+            <div className="lib-form-group">
+              <label className="lib-form-label" htmlFor="edit-document-title">Document title</label>
+              <input id="edit-document-title" className="lib-form-input" value={editForm.title} disabled={isSaving} required maxLength={255}
+                onChange={e => setEditForm(current => ({ ...current, title: e.target.value }))} />
+            </div>
+
+            <div className="lib-form-row">
+              <div className="lib-form-group">
+                <label className="lib-form-label" htmlFor="edit-document-semester">Semester</label>
+                <select id="edit-document-semester" className="lib-form-input" value={editForm.semesterId} disabled={isSaving} required
+                  onChange={e => handleEditSemesterChange(e.target.value)}>
+                  <option value="">Select semester</option>
+                  {semesterOptions.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </div>
+              <div className="lib-form-group">
+                <label className="lib-form-label" htmlFor="edit-document-course">Course</label>
+                <select id="edit-document-course" className="lib-form-input" value={editForm.subjectId} disabled={isSaving || !editForm.semesterId} required
+                  onChange={e => setEditForm(current => ({ ...current, subjectId: e.target.value }))}>
+                  <option value="">Select course</option>
+                  {courseOptionsForEdit.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="lib-form-row">
+              <div className="lib-form-group">
+                <label className="lib-form-label" htmlFor="edit-document-type">Document type</label>
+                <select id="edit-document-type" className="lib-form-input" value={editForm.type} disabled={isSaving}
+                  onChange={e => setEditForm(current => ({ ...current, type: e.target.value }))}>
+                  {TYPES.slice(1).map(type => <option key={type}>{type}</option>)}
+                </select>
+              </div>
+              <div className="lib-form-group">
+                <label className="lib-form-label" htmlFor="edit-document-status">Status</label>
+                <select id="edit-document-status" className="lib-form-input" value={editForm.status} disabled={isSaving}
+                  onChange={e => setEditForm(current => ({ ...current, status: e.target.value }))}>
+                  {STATUSES.slice(1).map(status => <option key={status}>{status}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {editError && <p className="dm-edit-error">{editError}</p>}
+
+            <div className="lib-modal-footer">
+              <button type="button" className="lib-modal-cancel-btn" disabled={isSaving} onClick={() => setEditDoc(null)}>Cancel</button>
+              <button type="submit" className="lib-modal-save-btn" disabled={isSaving || !editForm.title.trim() || !editForm.subjectId}>
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

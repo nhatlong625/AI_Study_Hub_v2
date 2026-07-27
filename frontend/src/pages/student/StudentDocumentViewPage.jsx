@@ -3,12 +3,11 @@ import { useEffect, useState, useRef } from "react";
 import { documentApi, commentApi } from "../../services/libraryApi";
 import { getDefaultAiUserId } from "../../services/aiChatService";
 import { useHistoryContext } from "../../hooks/useHistory";
+import { API_BASE_URL } from "../../config/api";
 
 function documentFileUrl(documentId, action) {
   if (!documentId) return "";
-  const apiBase =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
-  return `${apiBase.replace(/\/$/, "")}/documents/${documentId}/${action}`;
+  return `${API_BASE_URL}/documents/${documentId}/${action}`;
 }
 
 async function fetchDocumentFile(documentId, action) {
