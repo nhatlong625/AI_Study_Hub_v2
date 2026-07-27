@@ -10,6 +10,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -20,6 +21,7 @@ import java.time.Duration;
 
 @Service
 public class CloudflareR2StorageService {
+    public record StorageUsage(long usedBytes, long objectCount) {}
 
     @Value("${cloudflare.r2.account-id:}")
     private String accountId;
@@ -100,6 +102,22 @@ public class CloudflareR2StorageService {
                 .key(key)
                 .build();
         s3Client.deleteObject(deleteRequest);
+    }
+
+    public StorageUsage getUsage() {
+        if (!isConfigured()) {
+            throw new IllegalStateException("Cloudflare R2 is not properly configured.");
+        }
+        long usedBytes = 0L;
+        long objectCount = 0L;
+        ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketName).build();
+        for (var page : s3Client.listObjectsV2Paginator(request)) {
+            for (var object : page.contents()) {
+                usedBytes += object.size() == null ? 0L : object.size();
+                objectCount++;
+            }
+        }
+        return new StorageUsage(usedBytes, objectCount);
     }
 
     public String getDownloadUrl(String key) {

@@ -498,6 +498,7 @@ public class ChatService {
             FROM dbo.DOCUMENT d
             JOIN dbo.SUBJECT s ON s.subject_id = d.subject_id
             WHERE d.document_id = :documentId
+              AND d.deleted_at IS NULL
               AND (
                     d.user_id = :userId
                     OR UPPER(COALESCE(d.visibility_status, '')) = 'PUBLIC'
@@ -823,6 +824,7 @@ public class ChatService {
             FROM dbo.SUBJECT s
             LEFT JOIN dbo.USER_SUBJECT us ON us.subject_id = s.subject_id AND us.user_id = :userId
             LEFT JOIN dbo.DOCUMENT d ON d.subject_id = s.subject_id
+                AND d.deleted_at IS NULL
                 AND (
                     d.user_id = :userId
                     OR UPPER(COALESCE(d.visibility_status, '')) = 'PUBLIC'
@@ -879,6 +881,7 @@ public class ChatService {
             FROM dbo.AI_QUESTION aq
             JOIN dbo.DOCUMENT d ON d.document_id = aq.document_id
             WHERE d.subject_id IN (:subjectIds)
+              AND d.deleted_at IS NULL
               AND (
                     d.user_id = :userId
                     OR UPPER(COALESCE(d.visibility_status, '')) = 'PUBLIC'
@@ -910,6 +913,7 @@ public class ChatService {
                    COALESCE(MIN(COALESCE(NULLIF(d.title, ''), d.document_name)), '') AS sampleTitle
             FROM dbo.DOCUMENT d
             WHERE d.subject_id IN (:subjectIds)
+              AND d.deleted_at IS NULL
               AND (
                     UPPER(COALESCE(d.title, '')) LIKE '%QUIZ%'
                     OR UPPER(COALESCE(d.document_name, '')) LIKE '%QUIZ%'
