@@ -5,7 +5,24 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import EditDocumentModal from "../../components/common/EditDocumentModal";
 import { documentApi, semesterApi } from "../../services/libraryApi";
 import ShareDocumentModal from "../../components/common/ShareDocumentModal";
+import UpgradePricingModal from "../../components/student/UpgradePricingModal";
 import { useHistoryContext } from "../../hooks/useHistory";
+import { formatStorageBytes } from "../../utils/formatStorage";
+
+function parseStorageLimitError(message) {
+  // Format: "STORAGE_LIMIT_REACHED:usedBytes:maxBytes:fileBytes"
+  if (!message || !message.startsWith("STORAGE_LIMIT_REACHED:")) return null;
+  const parts = message.split(":");
+  const usedBytes = Number(parts[1]);
+  const maxBytes = Number(parts[2]);
+  const fileBytes = Number(parts[3]);
+  return {
+    usedBytes,
+    maxBytes,
+    fileBytes: Number.isFinite(fileBytes) ? fileBytes : 0,
+    freeBytes: Math.max(maxBytes - usedBytes, 0),
+  };
+}
 
 const AVATAR_COLORS = [
   "bg-indigo-400",
@@ -778,11 +795,16 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
   const [title, setTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState("");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const userId = getCurrentUserId();
+
+  const limitInfo = parseStorageLimitError(error);
 
   async function handleUpload() {
     if (!file || !title.trim() || !subjectId) return;
     setUploading(true);
+    setError("");
     try {
       // PRIVATE: toggle off.
       const newDoc = await documentApi.upload(
@@ -794,9 +816,11 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
       );
       onUploaded?.(newDoc);
       setUploading(false);
-    } catch (error) {
+    } catch (err) {
       setUploading(false);
-      alert(error?.message || "Upload failed! Please try again.");
+      const msg = err?.message || "Upload failed! Please try again.";
+      setError(msg);
+      // Không tự mở bảng giá — hiện lỗi kèm nút Upgrade Plan để người dùng tự bấm.
     }
   }
 
@@ -934,6 +958,49 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
               can request to make it public after uploading.
             </p>
           </div>
+
+          {/* Storage limit error */}
+          {limitInfo ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-sm font-bold text-amber-800 mb-1">
+                Storage Limit Reached
+              </p>
+              <p className="text-xs text-amber-600 mb-3">
+                You've used{" "}
+                <span className="font-bold">
+                  {formatStorageBytes(limitInfo.usedBytes)}
+                </span>{" "}
+                of your {formatStorageBytes(limitInfo.maxBytes)} storage quota.
+                {limitInfo.fileBytes > 0 && (
+                  <>
+                    {" "}This file ({formatStorageBytes(limitInfo.fileBytes)})
+                    exceeds the {formatStorageBytes(limitInfo.freeBytes)} you have
+                    left.
+                  </>
+                )}{" "}
+                Upgrade your plan to get more storage.
+              </p>
+              <div className="h-1.5 rounded-full bg-amber-200 overflow-hidden mb-3">
+                <div
+                  className="h-1.5 rounded-full bg-amber-500"
+                  style={{
+                    width: `${limitInfo.maxBytes > 0 ? Math.min((limitInfo.usedBytes / limitInfo.maxBytes) * 100, 100) : 0}%`,
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUpgradeModal(true)}
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors"
+              >
+                Upgrade Plan
+              </button>
+            </div>
+          ) : error ? (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-xs font-semibold text-red-600">{error}</p>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-end gap-4 px-7 py-5 bg-gray-50 border-t border-gray-100">
@@ -964,6 +1031,11 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
           </button>
         </div>
       </div>
+
+      <UpgradePricingModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 }
