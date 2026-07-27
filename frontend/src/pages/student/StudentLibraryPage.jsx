@@ -6,6 +6,7 @@ import {
   libraryApi,
   userSubjectApi,
 } from "../../services/libraryApi";
+import { formatStorageBytes } from "../../utils/formatStorage";
 
 // Badge config.
 function isMockSeedDocument(doc) {
@@ -398,12 +399,8 @@ export default function StudentLibraryPage() {
     .sort((a, b) => semesterOrderValue(a) - semesterOrderValue(b));
 
   const totalCourses = userSubjects.length;
-  const storageMB = (totalStorageBytes / 1024 / 1024).toFixed(1);
-  const storageGB = (totalStorageBytes / 1024 / 1024 / 1024).toFixed(2);
-  const maxStorageGB = maxStorageBytes / 1024 / 1024 / 1024;
-  const maxStorageLabel = Number.isInteger(maxStorageGB)
-    ? `${maxStorageGB}GB`
-    : `${maxStorageGB.toFixed(2)}GB`;
+  const storageLabel = formatStorageBytes(totalStorageBytes);
+  const maxStorageLabel = formatStorageBytes(maxStorageBytes);
   const storagePercent = Math.min(
     100,
     maxStorageBytes > 0 ? (totalStorageBytes / maxStorageBytes) * 100 : 0,
@@ -561,9 +558,7 @@ export default function StudentLibraryPage() {
           <div className="flex-1">
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-black text-gray-900">
-                {totalStorageBytes < 1024 * 1024 * 1024
-                  ? storageMB + "MB"
-                  : storageGB + "GB"}
+                {storageLabel}
               </span>
               <span className="text-xl font-black text-gray-400">/ {maxStorageLabel}</span>
             </div>
