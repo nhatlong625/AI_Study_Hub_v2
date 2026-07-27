@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-1.5-flash"
 
     deepseek_api_key: str = ""
-    deepseek_model: str = "deepseek-chat"
+    deepseek_model: str = "deepseek-v4-flash"
     internal_api_key: str = ""
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
