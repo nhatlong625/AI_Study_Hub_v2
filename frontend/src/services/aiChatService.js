@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/api\/?$/, '');
+import { API_ORIGIN as API_BASE_URL } from '../config/api';
 const REQUEST_TIMEOUT_MS = 30000;
 
 function readStoredUserId() {
@@ -10,11 +10,7 @@ function readStoredUserId() {
     // Ignore malformed localStorage and fall back below.
   }
 
-  const legacyUserId = Number(localStorage.getItem('aiStudyUserId'));
-  if (Number.isFinite(legacyUserId) && legacyUserId > 0) return legacyUserId;
-
-  const envUserId = Number(import.meta.env.VITE_AI_STUDY_USER_ID);
-  return Number.isFinite(envUserId) && envUserId > 0 ? envUserId : 1;
+  throw new Error('Authentication required: no current user was found.');
 }
 
 async function requestJson(path, options = {}) {
@@ -54,11 +50,10 @@ export function getDefaultAiUserId() {
   return readStoredUserId();
 }
 
-export function askAiChat({ userId, sessionId, message, subjectId, documentIds, topK = 3 }) {
+export function askAiChat({ sessionId, message, subjectId, documentIds, topK = 3 }) {
   return requestJson('/api/chat/ask', {
     method: 'POST',
     body: JSON.stringify({
-      userId: userId || getDefaultAiUserId(),
       sessionId: sessionId || null,
       subjectId: subjectId || null,
       documentIds: documentIds || [],
@@ -68,24 +63,22 @@ export function askAiChat({ userId, sessionId, message, subjectId, documentIds, 
   });
 }
 
-export function listAiChatSessions(userId = getDefaultAiUserId()) {
-  return requestJson(`/api/chat/sessions?userId=${encodeURIComponent(userId)}`);
+export function listAiChatSessions() {
+  return requestJson('/api/chat/sessions');
 }
 
-export function listAiChatMessages(sessionId, userId = getDefaultAiUserId()) {
-  return requestJson(`/api/chat/sessions/${encodeURIComponent(sessionId)}/messages?userId=${encodeURIComponent(userId)}`);
+export function listAiChatMessages(sessionId) {
+  return requestJson(`/api/chat/sessions/${encodeURIComponent(sessionId)}/messages`);
 }
 
-export function deleteAiChatSession(sessionOrId, userId = getDefaultAiUserId()) {
+export function deleteAiChatSession(sessionOrId) {
   const isSessionObject = typeof sessionOrId === 'object' && sessionOrId !== null;
   const sessionId = isSessionObject ? (sessionOrId.sessionId || sessionOrId.id) : sessionOrId;
-  const resolvedUserId = isSessionObject ? (sessionOrId.userId || userId || getDefaultAiUserId()) : (userId || getDefaultAiUserId());
 
-  return requestJson(`/api/chat/sessions/${encodeURIComponent(sessionId)}?userId=${encodeURIComponent(resolvedUserId)}`, {
+  return requestJson(`/api/chat/sessions/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
     body: JSON.stringify({
       sessionId,
-      userId: resolvedUserId,
       sessionTitle: isSessionObject ? (sessionOrId.sessionTitle || sessionOrId.title || '') : '',
       deletedAt: new Date().toISOString()
     })
