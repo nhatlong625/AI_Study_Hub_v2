@@ -9,7 +9,8 @@ import java.util.List;
  */
 @Data
 public class ChatAskRequest {
-    @NotNull Integer userId;
+    // Server-managed: ChatController populates this from the authenticated JWT.
+    Integer userId;
     Integer sessionId;
     Integer documentId;
     Integer subjectId;

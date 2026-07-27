@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { userService } from "../../services/userService";
+import { formatStorageMb } from "../../utils/formatStorage";
 import PageHeader from "../../components/common/PageHeader";
 
 function getCurrentUser() {
@@ -821,8 +822,7 @@ function BillingTab({ userId }) {
   function formatStorage(mb) {
     const value = Number(mb || 0);
     if (!value) return "N/A";
-    const gb = value / 1024;
-    return `${Number.isInteger(gb) ? gb : gb.toFixed(2)}GB storage`;
+    return `${formatStorageMb(value)} storage`;
   }
 
   function formatQuizLimit(value) {
