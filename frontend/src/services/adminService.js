@@ -137,7 +137,13 @@ export const adminService = {
     method: 'DELETE',
   }),
   getPlanVersions: async () => request('/api/admin/plans'),
+  getPlanSubscriptions: async () => request('/api/admin/plans/subscriptions'),
   getPlanVersionSubscribers: async (versionId) => request(`/api/admin/plans/versions/${versionId}/subscribers`),
+  // Omit subscriptionIds to migrate every subscriber still on this version.
+  migratePlanVersion: async (versionId, subscriptionIds) => request(`/api/admin/plans/versions/${versionId}/migrate`, {
+    method: 'POST',
+    body: JSON.stringify(subscriptionIds ? { subscriptionIds } : {}),
+  }),
   updateRenewalPolicy: async (subscriptionId, policy) => request(`/api/admin/plans/subscriptions/${subscriptionId}/renewal-policy`, {
     method: 'PATCH',
     body: JSON.stringify({ policy }),
