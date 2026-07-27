@@ -77,7 +77,12 @@ public class AiProviderConfigService {
         jdbc.getJdbcTemplate().execute("""
             IF NOT EXISTS (SELECT 1 FROM dbo.AI_PROVIDER_CONFIG WHERE provider = 'DEEPSEEK')
                 INSERT INTO dbo.AI_PROVIDER_CONFIG (provider, model_name, enabled, priority)
-                VALUES ('DEEPSEEK', 'deepseek-chat', 1, 3)
+                VALUES ('DEEPSEEK', 'deepseek-v4-flash', 1, 3)
+            ELSE
+                UPDATE dbo.AI_PROVIDER_CONFIG
+                SET model_name = 'deepseek-v4-flash', updated_at = SYSDATETIME()
+                WHERE provider = 'DEEPSEEK'
+                  AND model_name IN ('deepseek-chat', 'deepseek-reasoner')
             """);
     }
 

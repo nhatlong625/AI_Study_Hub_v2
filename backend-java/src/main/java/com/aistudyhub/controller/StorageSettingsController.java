@@ -17,6 +17,9 @@ public class StorageSettingsController {
     @GetMapping
     public Map<String, Object> get() { return service.publicSettings(); }
 
+    @GetMapping("/usage")
+    public Map<String, Object> usage() { return service.usage(); }
+
     @PutMapping
     public Map<String, Object> save(@RequestBody Map<String, Object> body, Authentication authentication) {
         Integer userId = authentication != null && authentication.getPrincipal() instanceof User user ? user.getUserId() : null;

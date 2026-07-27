@@ -90,7 +90,9 @@ public class AiSummaryRepository {
                 WITH readable_documents AS (
                     SELECT d.*
                     FROM DOCUMENT d
-                    WHERE d.user_id = ?
+                    WHERE d.deleted_at IS NULL
+                      AND (
+                       d.user_id = ?
                        OR UPPER(COALESCE(d.visibility_status, '')) = 'PUBLIC'
                        OR EXISTS (
                            SELECT 1
@@ -99,7 +101,7 @@ public class AiSummaryRepository {
                              AND ds.shared_to_user_id = ?
                              AND ds.share_type = 'USER'
                              AND ds.status = 'ACTIVE'
-                       )
+                       ))
                 ),
                 latest_summary AS (
                     SELECT
