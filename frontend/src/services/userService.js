@@ -44,6 +44,7 @@ export const userService = {
 
   // Stats — streak, study time, XP, storage
   getStats: (userId) => request(`/users/${userId}/stats`),
+  getUserProfileStats: (userId) => request(`/users/${userId}/stats`),
 
   // Report
   submitReport: (data) =>
