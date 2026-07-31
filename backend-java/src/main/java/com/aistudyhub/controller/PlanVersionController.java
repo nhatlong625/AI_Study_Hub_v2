@@ -1,6 +1,8 @@
 package com.aistudyhub.controller;
 
+import com.aistudyhub.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -9,15 +11,18 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/plans")
+@Slf4j
 @RequiredArgsConstructor
 public class PlanVersionController {
     private final NamedParameterJdbcTemplate jdbc;
+    private final CurrentUser currentUser;
 
     @GetMapping
     public List<Map<String, Object>> plans() {
@@ -92,6 +97,29 @@ public class PlanVersionController {
             """, Map.of("versionId", versionId));
     }
 
+    /**
+     * Subscribers eligible for a renewal policy. Basic is excluded because it is the free plan and
+     * is never grandfathered, so keeping vs. moving version on renewal has no meaning for it.
+     */
+    @GetMapping("/subscriptions")
+    public List<Map<String, Object>> subscriptions() {
+        return jdbc.queryForList("""
+            SELECT us.subscription_id AS id,
+                   u.full_name AS name, u.email,
+                   UPPER(sp.plan_name) AS [plan],
+                   pv.version_no AS versionNo,
+                   us.status,
+                   COALESCE(us.renewal_policy, 'KEEP_VERSION') AS renewalPolicy,
+                   CONVERT(NVARCHAR(10), us.end_date, 120) AS endDate
+            FROM dbo.USER_SUBSCRIPTION us
+            JOIN dbo.[USER] u ON u.user_id = us.user_id
+            JOIN dbo.SUBSCRIPTION_PLAN sp ON sp.plan_id = us.plan_id
+            LEFT JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
+            WHERE UPPER(sp.plan_name) <> 'BASIC' AND u.status = 'Active'
+            ORDER BY sp.plan_name, u.full_name
+            """, Map.of());
+    }
+
     @GetMapping("/versions/{versionId}/subscribers")
     public List<Map<String, Object>> versionSubscribers(@PathVariable Integer versionId) {
         return jdbc.queryForList("""
@@ -102,13 +130,15 @@ public class PlanVersionController {
                    us.status,
                    CONVERT(NVARCHAR(10), us.start_date, 120) AS startDate,
                    CONVERT(NVARCHAR(10), us.end_date, 120) AS endDate,
-                   COALESCE(us.renewal_policy, 'KEEP_VERSION') AS renewalPolicy
+                   COALESCE(us.renewal_policy, 'KEEP_VERSION') AS renewalPolicy,
+                   -- Current usage lets the admin see who would be over quota before migrating.
+                   CAST(COALESCE(used.bytes, 0) / 1048576 AS INT) AS usedStorageMb
             FROM dbo.USER_SUBSCRIPTION us
             JOIN dbo.[USER] u ON u.user_id = us.user_id
             OUTER APPLY (
                 SELECT SUM(CAST(d.document_size AS BIGINT)) AS bytes
                 FROM dbo.DOCUMENT d
-                WHERE d.user_id = us.user_id AND d.deleted_at IS NULL
+                WHERE d.user_id = us.user_id AND d.status = 'Active'
             ) used
             WHERE us.version_id = :versionId
             ORDER BY us.end_date DESC, us.subscription_id DESC
@@ -186,7 +216,7 @@ public class PlanVersionController {
             OUTER APPLY (
                 SELECT SUM(CAST(d.document_size AS BIGINT)) AS bytes
                 FROM dbo.DOCUMENT d
-                WHERE d.user_id = us.user_id AND d.deleted_at IS NULL
+                WHERE d.user_id = us.user_id AND d.status = 'Active'
             ) used
             WHERE us.version_id = :versionId
             """ + idFilter, candidateParams);
@@ -257,6 +287,7 @@ public class PlanVersionController {
             log.error("Migrated {} subscriptions but could not notify them: {}", subscriptionIds.size(), e.getMessage());
         }
     }
+
     @PostMapping("/{plan}/versions")
     @Transactional
     public Map<String, Object> createVersion(@PathVariable String plan, @RequestBody Map<String, Object> body) {
@@ -309,6 +340,23 @@ public class PlanVersionController {
                     :durationMonth, :maxStorage, :maxQuiz,
                     :featuresJson, SYSDATETIME(), NULL, 1, SYSDATETIME())
             """, p, Integer.class);
+
+        // Free plans are not grandfathered: the new version takes effect for every existing
+        // account right away. Move their subscriptions onto it so version_id matches the quota
+        // they actually get - otherwise subscriber counts report the new version as unused while
+        // it governs every free account. Paid subscribers keep the version they bought and see no
+        // change, so creating a version is neither a migration nor news for them.
+        if (isFreePlan(plan)) {
+            int moved = jdbc.update("""
+                UPDATE us
+                SET us.version_id = :versionId
+                FROM dbo.USER_SUBSCRIPTION us
+                WHERE us.plan_id = :planId AND (us.version_id IS NULL OR us.version_id <> :versionId)
+                """, new MapSqlParameterSource("versionId", versionId).addValue("planId", planId));
+            log.info("Moved {} {} subscription(s) onto version {}", moved, plan, versionId);
+            announceFreePlanChange(plan, current, p);
+        }
+
         return jdbc.queryForMap("""
             SELECT UPPER(sp.plan_name) AS [plan], pv.version_id AS versionId, pv.version_no AS versionNo,
                    pv.price, pv.monthly_discount_percent AS monthlyDiscount,
@@ -359,6 +407,95 @@ public class PlanVersionController {
         int rows = jdbc.update("UPDATE dbo.USER_SUBSCRIPTION SET renewal_policy=:policy WHERE subscription_id=:id",
                 new MapSqlParameterSource("policy", policy).addValue("id", subscriptionId));
         if (rows == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found.");
+    }
+
+    /**
+     * Basic is handed to every new account for free, so there is no purchase to grandfather and
+     * {@code PlanQuotaService} resolves its quota from the active version for all accounts.
+     */
+    private boolean isFreePlan(String planName) {
+        return "BASIC".equalsIgnoreCase(String.valueOf(planName).trim());
+    }
+
+    /**
+     * Notifies the users a free-plan version change actually reaches: active subscribers who have
+     * not turned push notifications off. Failures are swallowed so a notification problem can
+     * never roll back the version the admin just created.
+     */
+    private void announceFreePlanChange(String planName, Map<String, Object> previous,
+                                        MapSqlParameterSource created) {
+        try {
+            String plan = planName.trim().toUpperCase();
+            int newStorage = integer(created.getValue("maxStorage"), 0);
+            int newQuiz = integer(created.getValue("maxQuiz"), 0);
+            int oldStorage = integer(previous.get("maxStorage"), newStorage);
+            int oldQuiz = integer(previous.get("maxQuiz"), newQuiz);
+            boolean reduced = newStorage < oldStorage || (newQuiz != -1 && oldQuiz != -1 && newQuiz < oldQuiz);
+
+            StringBuilder content = new StringBuilder("Your ").append(plan).append(" plan has been updated. ");
+            if (oldStorage == newStorage && oldQuiz == newQuiz) {
+                content.append("Storage stays at ").append(storageText(newStorage))
+                       .append(" and quizzes stay at ").append(quizText(newQuiz)).append(" per month.");
+            } else {
+                if (oldStorage != newStorage) {
+                    content.append("Storage: ").append(storageText(oldStorage))
+                           .append(" -> ").append(storageText(newStorage)).append(". ");
+                }
+                if (oldQuiz != newQuiz) {
+                    content.append("Quizzes per month: ").append(quizText(oldQuiz))
+                           .append(" -> ").append(quizText(newQuiz)).append(". ");
+                }
+                if (reduced) content.append("Please review your usage so uploads are not blocked.");
+            }
+
+            Integer announcementId = jdbc.queryForObject("""
+                INSERT INTO dbo.ANNOUNCEMENT (user_id, title, content, type, recipient_group, created_at)
+                OUTPUT INSERTED.announcement_id
+                VALUES (:senderId, :title, :content, :type, :recipients, GETDATE())
+                """, new MapSqlParameterSource("senderId", currentUser.id())
+                    .addValue("title", plan + " plan limits updated")
+                    .addValue("content", content.toString().trim())
+                    .addValue("type", reduced ? "warning" : "info")
+                    .addValue("recipients", "FREE PLAN"), Integer.class);
+
+            // Mirrors NotificationController's fan-out: only active accounts on this plan, and
+            // only those who still accept push notifications.
+            jdbc.update("""
+                WITH latest_subscription AS (
+                    SELECT us.user_id, sp.plan_name,
+                           ROW_NUMBER() OVER (PARTITION BY us.user_id ORDER BY us.end_date DESC, us.subscription_id DESC) rn
+                    FROM dbo.USER_SUBSCRIPTION us
+                    JOIN dbo.SUBSCRIPTION_PLAN sp ON sp.plan_id = us.plan_id
+                    WHERE us.status = 'Active'
+                )
+                INSERT INTO dbo.USER_ANNOUNCEMENT (user_id, announcement_id, is_read, read_at)
+                SELECT u.user_id, :announcementId, 0, NULL
+                FROM dbo.[USER] u
+                JOIN latest_subscription ls ON ls.user_id = u.user_id AND ls.rn = 1
+                LEFT JOIN dbo.USER_SETTINGS settings ON settings.user_id = u.user_id
+                WHERE u.status = 'Active'
+                  AND UPPER(ls.plan_name) = :plan
+                  AND COALESCE(settings.push_notifications, 1) = 1
+                """, new MapSqlParameterSource("announcementId", announcementId).addValue("plan", plan));
+        } catch (Exception e) {
+            log.error("Created a new {} version but could not notify its subscribers: {}",
+                    planName, e.getMessage());
+        }
+    }
+
+    /** Mirrors the frontend formatStorage helper: MB below a gigabyte, GB above. */
+    private String storageText(int megabytes) {
+        if (megabytes <= 0) return "0 MB";
+        if (megabytes < 1024) return megabytes + " MB";
+        double gigabytes = megabytes / 1024.0;
+        return (gigabytes == Math.floor(gigabytes)
+                ? String.valueOf((int) gigabytes)
+                : new BigDecimal(gigabytes).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString())
+                + " GB";
+    }
+
+    private String quizText(int quizzes) {
+        return quizzes == -1 ? "unlimited" : String.valueOf(quizzes);
     }
 
     private int integer(Object value, int fallback) {

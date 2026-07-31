@@ -581,7 +581,12 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.AI_PROVIDER_CONFIG WHERE provider = N'DEEPSEEK')
     INSERT INTO dbo.AI_PROVIDER_CONFIG (provider, model_name, enabled, priority)
-    VALUES (N'DEEPSEEK', N'deepseek-chat', 1, 3);
+    VALUES (N'DEEPSEEK', N'deepseek-v4-flash', 1, 3);
+ELSE
+    UPDATE dbo.AI_PROVIDER_CONFIG
+    SET model_name = N'deepseek-v4-flash', updated_at = SYSDATETIME()
+    WHERE provider = N'DEEPSEEK'
+      AND model_name IN (N'deepseek-chat', N'deepseek-reasoner');
 GO
 
 /*==============================================================================
@@ -644,11 +649,9 @@ BEGIN
         activity_id     INT IDENTITY(1,1) NOT NULL,
         user_id         INT NOT NULL,
         document_id     INT NOT NULL,
-        -- NULL được: một hoạt động 'Reading' chỉ gắn với document, không có
-        -- summary/session/question nào để tham chiếu.
-        summary_id      INT NULL,
-        session_id      INT NULL,
-        question_id     INT NULL,
+        summary_id      INT NOT NULL,
+        session_id      INT NOT NULL,
+        question_id     INT NOT NULL,
         activity_type   NVARCHAR(50) NOT NULL,
         study_duration  INT NOT NULL,
         activity_date   DATETIME NOT NULL,
@@ -657,25 +660,6 @@ BEGIN
         CONSTRAINT PK_STUDY_ACTIVITY PRIMARY KEY (activity_id)
     );
 END
-GO
-
--- Database tạo trước khi có tính năng Study Time vẫn để 3 cột này NOT NULL,
--- mà hoạt động 'Reading' không có summary/session/question để điền.
--- Khối dưới nới lỏng ràng buộc trên DB cũ; chạy lại nhiều lần vẫn an toàn.
-IF EXISTS (SELECT 1 FROM sys.columns
-           WHERE object_id = OBJECT_ID(N'dbo.STUDY_ACTIVITY')
-             AND name = N'summary_id' AND is_nullable = 0)
-    ALTER TABLE dbo.STUDY_ACTIVITY ALTER COLUMN summary_id INT NULL;
-GO
-IF EXISTS (SELECT 1 FROM sys.columns
-           WHERE object_id = OBJECT_ID(N'dbo.STUDY_ACTIVITY')
-             AND name = N'session_id' AND is_nullable = 0)
-    ALTER TABLE dbo.STUDY_ACTIVITY ALTER COLUMN session_id INT NULL;
-GO
-IF EXISTS (SELECT 1 FROM sys.columns
-           WHERE object_id = OBJECT_ID(N'dbo.STUDY_ACTIVITY')
-             AND name = N'question_id' AND is_nullable = 0)
-    ALTER TABLE dbo.STUDY_ACTIVITY ALTER COLUMN question_id INT NULL;
 GO
 
 -- Normalize the legacy plural table name before creating/altering TOKEN.
@@ -1023,8 +1007,18 @@ BEGIN
     );
 END
 
-INSERT INTO dbo.USER_SUBSCRIPTION (user_id, plan_id, start_date, end_date, status)
-SELECT u.user_id, @BasicPlanId, CAST(GETDATE() AS DATE), DATEADD(month, 1, CAST(GETDATE() AS DATE)), N'Active'
+-- version_id must be set: every quota lookup joins USER_SUBSCRIPTION to
+-- SUBSCRIPTION_PLAN_VERSION through it, and a NULL leaves the account on hard-coded defaults
+-- instead of the configured plan limits.
+DECLARE @BasicVersionId INT = (
+    SELECT TOP 1 pv.version_id
+    FROM dbo.SUBSCRIPTION_PLAN_VERSION pv
+    WHERE pv.plan_id = @BasicPlanId AND pv.is_active = 1
+    ORDER BY pv.version_no DESC
+);
+
+INSERT INTO dbo.USER_SUBSCRIPTION (user_id, plan_id, version_id, start_date, end_date, status)
+SELECT u.user_id, @BasicPlanId, @BasicVersionId, CAST(GETDATE() AS DATE), DATEADD(month, 1, CAST(GETDATE() AS DATE)), N'Active'
 FROM dbo.[USER] u
 WHERE u.email IN (N'admin2@aistudyhub.local', N'student2@aistudyhub.local')
   AND NOT EXISTS

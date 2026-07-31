@@ -4,6 +4,12 @@ import { adminService } from '../../services/adminService';
 
 const USERS_PER_PAGE = 12;
 
+// Backend trả tên gói viết HOA (BASIC/PLUS/...); hiển thị dạng "Basic", "Plus" cho gọn.
+const titleCasePlan = (value) => {
+  const text = String(value || '').trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : '';
+};
+
 function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewUser, setViewUser] = useState(null);
@@ -15,6 +21,22 @@ function UserManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [planOptions, setPlanOptions] = useState(['Basic', 'Plus', 'Pro']);
+
+  const loadPlans = async () => {
+    try {
+      const rows = await adminService.getPlanVersions();
+      // getPlanVersions trả về từng version; gom lại tên gói duy nhất (kể cả gói tự thêm).
+      const names = [];
+      (Array.isArray(rows) ? rows : []).forEach((row) => {
+        const name = titleCasePlan(row.plan);
+        if (name && !names.includes(name)) names.push(name);
+      });
+      if (names.length) setPlanOptions(names);
+    } catch {
+      // Giữ nguyên danh sách mặc định nếu không tải được.
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -32,6 +54,7 @@ function UserManagementPage() {
 
   useEffect(() => {
     loadUsers();
+    loadPlans();
   }, []);
 
   const getUserRole = (user) => user.role || 'User';
@@ -325,15 +348,26 @@ function UserManagementPage() {
                 <div className="edit-form-group">
                   <label className="edit-form-label">Subscription Plan</label>
                   <div className="edit-select-wrapper">
-                    <select
-                      className="edit-form-select"
-                      value={editForm.plan || ''}
-                      onChange={e => setEditForm(f => ({ ...f, plan: e.target.value }))}
-                    >
-                      <option>Basic</option>
-                      <option>Plus</option>
-                      <option>Pro</option>
-                    </select>
+                    {(() => {
+                      // Khớp gói hiện tại của user với option (không phân biệt hoa/thường) để
+                      // tránh nhân đôi mục do lệch chữ hoa (vd "NQS" vs "Nqs").
+                      const matched = planOptions.find(
+                        name => name.toLowerCase() === String(editForm.plan || '').toLowerCase()
+                      );
+                      const selected = matched || editForm.plan || '';
+                      const options = matched || !selected ? planOptions : [selected, ...planOptions];
+                      return (
+                        <select
+                          className="edit-form-select"
+                          value={selected}
+                          onChange={e => setEditForm(f => ({ ...f, plan: e.target.value }))}
+                        >
+                          {options.map(name => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="edit-select-chevron"><path d="m6 9 6 6 6-6" stroke="#8c8a9e" strokeWidth="2" strokeLinecap="round"/></svg>
                   </div>
                 </div>

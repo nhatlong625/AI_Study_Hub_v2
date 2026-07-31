@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -53,6 +54,18 @@ public class GlobalExceptionHandler {
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .findFirst().orElse("Validation error");
         return error(HttpStatus.BAD_REQUEST, msg);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String,Object>> handleResponseStatus(ResponseStatusException ex) {
+        HttpStatusCode statusCode = ex.getStatusCode();
+        HttpStatus resolved = HttpStatus.resolve(statusCode.value());
+        Map<String,Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", statusCode.value());
+        body.put("error", resolved != null ? resolved.getReasonPhrase() : "Error");
+        body.put("message", ex.getReason() != null ? ex.getReason() : ex.getMessage());
+        return ResponseEntity.status(statusCode).body(body);
     }
 
     @ExceptionHandler(Exception.class)

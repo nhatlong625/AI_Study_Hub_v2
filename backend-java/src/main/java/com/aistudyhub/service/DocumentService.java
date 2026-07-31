@@ -69,8 +69,6 @@ public class DocumentService {
     /* Section */
     private static final Set<String> SUMMARIZABLE_TYPES = Set.of("txt", "md", "csv", "pdf", "docx", "pptx");
     private static final Pattern UNSAFE_OBJECT_NAME_CHARS = Pattern.compile("[^a-zA-Z0-9._-]");
-    /** Trần cho một nhịp heartbeat đọc tài liệu — client không được gửi quá số này. */
-    public static final int MAX_HEARTBEAT_SECONDS = 60;
     private static final String SUMMARY_PENDING = "PENDING";
     private static final String SUMMARY_PROCESSING = "PROCESSING";
     private static final String SUMMARY_COMPLETED = "COMPLETED";
@@ -275,54 +273,6 @@ public class DocumentService {
                 .isPresent();
         if (!owner && !publicDocument && !shared) {
             throw new org.springframework.security.access.AccessDeniedException("You cannot access this document.");
-        }
-    }
-
-    /**
-     * Ghi nhận thời gian user đang đọc một tài liệu, phục vụ Study Time ở profile.
-     *
-     * Frontend gửi heartbeat mỗi HEARTBEAT_SECONDS giây trong lúc tab còn mở và
-     * còn hiển thị. Cách này không cần sự kiện "đóng tài liệu" — nếu user tắt máy
-     * hay mất mạng thì heartbeat ngừng, và ta chỉ mất tối đa một nhịp thay vì
-     * phải đoán xem phiên đọc kéo dài bao lâu.
-     *
-     * Mỗi nhịp cộng dồn vào dòng STUDY_ACTIVITY đang mở của cặp (user, document).
-     * Một dòng được coi là "đang mở" nếu lần cập nhật gần nhất cách đây không quá
-     * 2 nhịp — đủ rộng để chịu được một nhịp bị trễ, đủ hẹp để lần đọc sau tạo
-     * dòng mới thay vì nối vào lần đọc trước.
-     */
-    @Transactional
-    public void recordReadingHeartbeat(Integer documentId, Integer userId, int seconds) {
-        requireReadable(documentId, userId);
-
-        // Chặn client gửi số giây tuỳ ý để thổi phồng Study Time.
-        int capped = Math.max(0, Math.min(seconds, MAX_HEARTBEAT_SECONDS));
-        if (capped == 0) return;
-
-        int staleAfterSeconds = MAX_HEARTBEAT_SECONDS * 2;
-
-        int updated = jdbcTemplate.update("""
-                UPDATE dbo.STUDY_ACTIVITY
-                SET study_duration = study_duration + ?,
-                    activity_date  = GETDATE()
-                WHERE activity_id = (
-                    SELECT TOP 1 activity_id
-                    FROM dbo.STUDY_ACTIVITY
-                    WHERE user_id = ?
-                      AND document_id = ?
-                      AND activity_type = 'Reading'
-                      AND DATEDIFF(second, activity_date, GETDATE()) <= ?
-                    ORDER BY activity_date DESC
-                )
-                """, capped, userId, documentId, staleAfterSeconds);
-
-        if (updated == 0) {
-            jdbcTemplate.update("""
-                    INSERT INTO dbo.STUDY_ACTIVITY
-                        (user_id, document_id, summary_id, session_id, question_id,
-                         activity_type, study_duration, activity_date, is_valid_streak, created_at)
-                    VALUES (?, ?, NULL, NULL, NULL, 'Reading', ?, GETDATE(), 1, GETDATE())
-                    """, userId, documentId, capped);
         }
     }
 
@@ -1160,13 +1110,10 @@ public class DocumentService {
 
         Long usedBytes;
         try {
-            // Trash chỉ set deleted_at chứ không đổi status, nên lọc theo status
-            // sẽ tính cả tài liệu đã bỏ vào thùng rác và user không giải phóng
-            // được quota dù đã xoá.
             usedBytes = jdbcTemplate.queryForObject("""
                     SELECT COALESCE(SUM(document_size), 0)
                     FROM dbo.DOCUMENT
-                    WHERE user_id = ? AND deleted_at IS NULL
+                    WHERE user_id = ? AND status = 'Active'
                     """, Long.class, userId);
         } catch (Exception e) {
             usedBytes = 0L;

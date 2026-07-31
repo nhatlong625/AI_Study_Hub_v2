@@ -42,15 +42,9 @@ export const userService = {
     }),
   deleteAccount: (userId) => request(`/users/${userId}`, { method: "DELETE" }),
 
-  // Stats — streak, study time, courses, storage
+  // Stats — streak, study time, XP, storage
   getStats: (userId) => request(`/users/${userId}/stats`),
-
-  // Recent Activity — upload / doc tai lieu / nop quiz / chat AI
-  getActivities: (userId, limit = 10) =>
-    request(`/users/${userId}/activities?limit=${limit}`),
-
-  // Tien do tung mon — so tai lieu da doc / tong tai lieu
-  getCourseProgress: (userId) => request(`/users/${userId}/course-progress`),
+  getUserProfileStats: (userId) => request(`/users/${userId}/stats`),
 
   // Report
   submitReport: (data) =>

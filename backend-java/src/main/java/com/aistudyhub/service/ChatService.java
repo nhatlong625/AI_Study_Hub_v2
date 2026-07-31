@@ -69,7 +69,10 @@ public class ChatService {
             "CCNA", List.of("NETWORK", "NETWORKING", "COMPUTER NETWORKING")
     );
     private static final double MIN_CONTEXT_SCORE = 0.35;
-    private static final int MAX_AI_CONTEXT_CHARS = 8_000;
+    private static final int MAX_AI_CONTEXT_CHARS = 16_000;
+    private static final int DOCUMENT_CHUNK_CHARS = 2_000;
+    private static final int DOCUMENT_CHUNK_OVERLAP_CHARS = 300;
+    private static final int MAX_RELEVANT_CHUNKS_PER_DOCUMENT = 6;
 
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
@@ -127,6 +130,15 @@ public class ChatService {
             if (!session.userId().equals(req.getUserId())) {
                 throw new AccessDeniedException("Access denied");
             }
+        }
+
+        Integer requestedDocumentId = req.getDocumentId() != null
+                ? req.getDocumentId()
+                : (req.getDocumentIds() == null || req.getDocumentIds().isEmpty()
+                ? null
+                : req.getDocumentIds().get(0));
+        if (requestedDocumentId != null) {
+            sessionRepository.updateDocumentId(sessionId, requestedDocumentId);
         }
 
         messageRepository.save(sessionId, "user", req.getMessage());
@@ -252,6 +264,7 @@ public class ChatService {
 
         List<SummaryHit> availableHits = aiSummaryRepository.findForChatContext(req.getUserId(), subjectIds, documentIds);
         List<SummaryHit> selected = rankContext(req.getMessage(), availableHits, subjectMatch, documentIds, explicitSubjectScope, topK);
+        selected = enrichWithFullDocumentExcerpts(req.getMessage(), selected, documentIds, req.getUserId());
         if (!shouldTranslateForRetrieval(req.getMessage(), selected, documentIds)) {
             return new RetrievalResult(selected, null, null, false);
         }
@@ -264,11 +277,96 @@ public class ChatService {
 
         String translatedRetrievalQuery = req.getMessage() + " " + translation.translatedQuery();
         List<SummaryHit> translatedSelected = rankContext(translatedRetrievalQuery, availableHits, subjectMatch, documentIds, explicitSubjectScope, topK);
+        translatedSelected = enrichWithFullDocumentExcerpts(
+                translatedRetrievalQuery, translatedSelected, documentIds, req.getUserId());
         if (!translatedSelected.isEmpty()
                 && (selected.isEmpty() || translatedSelected.get(0).score() > selected.get(0).score())) {
             return new RetrievalResult(translatedSelected, translation.translatedQuery(), translation.usage(), translation.cacheHit());
         }
         return new RetrievalResult(selected, translation.translatedQuery(), translation.usage(), translation.cacheHit());
+    }
+
+    /**
+     * A selected document remains the active chat source. Read its complete extracted
+     * text, scan every overlapping chunk, and send the most relevant excerpts to the
+     * LLM instead of relying only on the short AI_SUMMARY row.
+     */
+    private List<SummaryHit> enrichWithFullDocumentExcerpts(
+            String query,
+            List<SummaryHit> hits,
+            List<Integer> documentIds,
+            Integer userId
+    ) {
+        if (hits == null || hits.isEmpty() || documentIds == null || documentIds.isEmpty()) return hits;
+
+        List<SummaryHit> enriched = new ArrayList<>();
+        for (SummaryHit hit : hits) {
+            if (!documentIds.contains(hit.documentId())) {
+                enriched.add(hit);
+                continue;
+            }
+
+            try {
+                documentService.requireReadable(hit.documentId(), userId);
+                String fullText = documentService.getAiReadableText(hit.documentId());
+                String excerpts = relevantDocumentExcerpts(query, fullText);
+                if (excerpts.isBlank()) {
+                    enriched.add(hit);
+                    continue;
+                }
+
+                String context = "Relevant excerpts selected after scanning the complete document:\n"
+                        + excerpts
+                        + (nullToBlank(hit.summaryContent()).isBlank()
+                        ? ""
+                        : "\n\nDocument summary:\n" + hit.summaryContent());
+                enriched.add(new SummaryHit(
+                        hit.documentId(), hit.documentName(), hit.title(), hit.subjectId(),
+                        hit.subjectCode(), hit.subjectName(), limitAiContext(context),
+                        hit.summaryStatus(), hit.summaryError(), hit.visibilityStatus(), hit.score()
+                ));
+            } catch (Exception e) {
+                log.warn("Could not scan full text for chat document {}: {}", hit.documentId(), e.getMessage());
+                enriched.add(hit);
+            }
+        }
+        return enriched;
+    }
+
+    private String relevantDocumentExcerpts(String query, String fullText) {
+        String normalized = nullToBlank(fullText).replace("\u0000", "").trim();
+        if (normalized.isBlank()) return "";
+        if (normalized.length() <= MAX_AI_CONTEXT_CHARS) return normalized;
+
+        RetrievalTerms queryTerms = retrievalTerms(expandQueryForRetrieval(query));
+        List<ScoredTextChunk> chunks = new ArrayList<>();
+        int step = DOCUMENT_CHUNK_CHARS - DOCUMENT_CHUNK_OVERLAP_CHARS;
+        for (int start = 0; start < normalized.length(); start += step) {
+            int end = Math.min(normalized.length(), start + DOCUMENT_CHUNK_CHARS);
+            String chunk = normalized.substring(start, end).trim();
+            if (!chunk.isBlank()) chunks.add(new ScoredTextChunk(start, chunk, chunkScore(queryTerms, chunk)));
+            if (end == normalized.length()) break;
+        }
+
+        return chunks.stream()
+                .sorted(Comparator.comparing(ScoredTextChunk::score).reversed()
+                        .thenComparing(ScoredTextChunk::start))
+                .limit(MAX_RELEVANT_CHUNKS_PER_DOCUMENT)
+                .sorted(Comparator.comparing(ScoredTextChunk::start))
+                .map(chunk -> "[Document excerpt]\n" + chunk.text())
+                .reduce("", (left, right) -> left.isBlank() ? right : left + "\n\n" + right);
+    }
+
+    private double chunkScore(RetrievalTerms queryTerms, String chunk) {
+        RetrievalTerms chunkTerms = retrievalTerms(chunk);
+        double score = 0.0;
+        for (String term : queryTerms.original()) {
+            if (!isStopWord(term) && chunkTerms.original().contains(term)) score += 2.0;
+        }
+        for (String term : queryTerms.ascii()) {
+            if (!isStopWord(term) && chunkTerms.ascii().contains(term)) score += 1.0;
+        }
+        return score;
     }
 
     private List<SummaryHit> rankContext(
@@ -346,12 +444,11 @@ public class ChatService {
     private List<Integer> normalizeDocumentIds(ChatAskRequest req, Integer sessionId) {
         if (req.getDocumentIds() != null && !req.getDocumentIds().isEmpty()) return req.getDocumentIds();
         if (req.getDocumentId() != null) return List.of(req.getDocumentId());
-        if (shouldUseReferencedDocumentContext(req.getMessage(), sessionId)) {
-            return resolveReferencedDocumentId(req, sessionId)
-                    .map(List::of)
-                    .orElseGet(List::of);
-        }
-        return List.of();
+        // Once a document is selected for a chat session, keep it as the active
+        // source for every follow-up question until the user selects another one.
+        return resolveReferencedDocumentId(req, sessionId)
+                .map(List::of)
+                .orElseGet(List::of);
     }
 
     private Double keywordScore(String query, SummaryHit hit, SubjectMatch subjectMatch) {
@@ -1007,7 +1104,8 @@ public class ChatService {
                 .filter(Objects::nonNull)
                 .map(String::valueOf)
                 .reduce("", (left, right) -> left.isBlank() ? right : left + "," + right);
-        String raw = nullToBlank(String.valueOf(req.getUserId()))
+        String raw = "full-document-rag-v1|"
+                + nullToBlank(String.valueOf(req.getUserId()))
                 + "|" + stripVietnameseMarks(req.getMessage()).trim().replaceAll("\\s+", " ")
                 + "|" + sourceIds;
         return sha256(raw);
@@ -1120,6 +1218,8 @@ public class ChatService {
     private record TranslationResult(String translatedQuery, Map<String, Object> usage, boolean cacheHit) {}
 
     private record RetrievalTerms(Set<String> original, Set<String> ascii, Set<String> all) {}
+
+    private record ScoredTextChunk(int start, String text, double score) {}
 
     private record DocumentSubjectAnswer(
             String answer,

@@ -4,6 +4,7 @@ import com.aistudyhub.dto.request.ChangePasswordRequest;
 import com.aistudyhub.dto.request.UpdateSettingsRequest;
 import com.aistudyhub.dto.response.*;
 import com.aistudyhub.security.CurrentUser;
+import com.aistudyhub.service.PlanQuotaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final WebClient supabaseWebClient;
     private final CurrentUser currentUser;
+    private final PlanQuotaService planQuotaService;
 
     @Value("${supabase.url}")
     private String supabaseUrl;
@@ -130,67 +132,43 @@ public class UserController {
             }
         } catch (Exception ignored) {}
 
-        // 2. Study time — thời gian thật, đo từ timestamp chứ không nhân hằng số.
-        //
-        //    Chat: cộng khoảng cách giữa các tin nhắn liên tiếp trong cùng một phiên.
-        //    Khoảng cách > IDLE_GAP_SECONDS coi như user bỏ đi rồi quay lại, không tính —
-        //    nếu không một phiên mở từ hôm qua sẽ cộng nguyên 24 giờ.
-        //    Hệ quả: phiên chỉ có đúng 1 tin nhắn đóng góp 0 phút, vì không có
-        //    mốc thứ hai nào để đo. Chấp nhận thiếu một ít còn hơn bịa ra thời gian.
-        final int IDLE_GAP_SECONDS = 900; // 15 phút
-
-        Integer chatSeconds = jdbc.queryForObject("""
-                WITH msg AS (
-                    SELECT DATEDIFF(second,
-                               LAG(cm.created_at) OVER (
-                                   PARTITION BY cm.session_id ORDER BY cm.created_at),
-                               cm.created_at) AS gap_seconds
-                    FROM dbo.CHAT_MESSAGE cm
-                    JOIN dbo.CHAT_SESSION cs ON cs.session_id = cm.session_id
-                    WHERE cs.user_id = ?
-                )
-                SELECT COALESCE(SUM(gap_seconds), 0)
-                FROM msg
-                WHERE gap_seconds IS NOT NULL
-                  AND gap_seconds > 0
-                  AND gap_seconds <= ?
-                """, Integer.class, userId, IDLE_GAP_SECONDS);
-
-        //    Quiz: start_time được ghi bằng GETDATE() trừ đi timer thật của frontend,
-        //    end_time là lúc nộp bài — nên hiệu hai mốc chính là thời gian làm bài thật.
-        //    Chỉ tính bài đã nộp (end_time IS NOT NULL).
-        Integer quizSeconds = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(DATEDIFF(second, start_time, end_time)), 0)
-                FROM dbo.TEST_ATTEMPT
-                WHERE user_id = ?
-                  AND end_time IS NOT NULL
-                  AND end_time >= start_time
+        // 2. Study time — đếm chat messages (mỗi exchange ~3 phút)
+        Integer messageCount = jdbc.queryForObject("""
+                SELECT COUNT(cm.message_id)
+                FROM dbo.CHAT_MESSAGE cm
+                JOIN dbo.CHAT_SESSION cs ON cs.session_id = cm.session_id
+                WHERE cs.user_id = ?
                 """, Integer.class, userId);
-
-        //    Đọc tài liệu: cộng dồn từ heartbeat mà frontend gửi trong lúc mở tài liệu
-        //    (xem DocumentService.recordReadingHeartbeat).
-        Integer readingSeconds = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(study_duration), 0)
-                FROM dbo.STUDY_ACTIVITY
-                WHERE user_id = ?
-                  AND activity_type = 'Reading'
-                """, Integer.class, userId);
-
-        int studyTimeMinutes = ((chatSeconds == null ? 0 : chatSeconds)
-                + (quizSeconds == null ? 0 : quizSeconds)
-                + (readingSeconds == null ? 0 : readingSeconds)) / 60;
+        int studyTimeMinutes = (messageCount == null ? 0 : messageCount) * 3;
 
         // 3. Courses completed — số user_subjects
         Integer coursesCompleted = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.USER_SUBJECT WHERE user_id = ?
                 """, Integer.class, userId);
 
-        // 4. Storage
-        // Tài liệu trong Trash không chiếm quota (Trash chỉ set deleted_at,
-        // status vẫn là 'Active'), nên phải lọc theo deleted_at.
+        // 4. XP — docs×50 + chat sessions×20 + quiz attempts×100
+        Integer docCount = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.DOCUMENT WHERE user_id = ?
+                """, Integer.class, userId);
+        Integer sessionCount = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.CHAT_SESSION WHERE user_id = ?
+                """, Integer.class, userId);
+        Integer attemptCount = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.TEST_ATTEMPT WHERE user_id = ?
+                """, Integer.class, userId);
+
+        long xp = (long)(docCount == null ? 0 : docCount) * 50
+                + (long)(sessionCount == null ? 0 : sessionCount) * 20
+                + (long)(attemptCount == null ? 0 : attemptCount) * 100;
+
+        int level = (int)(xp / 250) + 1;
+        long xpForCurrentLevel = ((long)(level - 1)) * 250;
+        long xpForNextLevel = (long) level * 250;
+
+        // 5. Storage
         Long usedBytes = jdbc.queryForObject("""
                 SELECT COALESCE(SUM(document_size), 0)
-                FROM dbo.DOCUMENT WHERE user_id = ? AND deleted_at IS NULL
+                FROM dbo.DOCUMENT WHERE user_id = ?
                 """, Long.class, userId);
 
         Integer maxStorageMb;
@@ -203,175 +181,24 @@ public class UserController {
                     ORDER BY us.end_date DESC, us.subscription_id DESC
                     """, Integer.class, userId);
         } catch (Exception e) {
-            maxStorageMb = null;
+            maxStorageMb = 1024;
         }
-        if (maxStorageMb == null) maxStorageMb = fallbackStorageMb();
+        if (maxStorageMb == null) maxStorageMb = 1024;
         long totalBytes = (long) maxStorageMb * 1024L * 1024L;
-
 
         UserStatsResponse stats = UserStatsResponse.builder()
                 .streakDays(streakDays)
                 .studyTimeMinutes(studyTimeMinutes)
                 .coursesCompleted(coursesCompleted == null ? 0 : coursesCompleted)
+                .xp(xp)
+                .level(level)
+                .xpForCurrentLevel(xpForCurrentLevel)
+                .xpForNextLevel(xpForNextLevel)
                 .usedStorageBytes(usedBytes == null ? 0 : usedBytes)
                 .totalStorageBytes(totalBytes)
                 .build();
 
         return ResponseEntity.ok(stats);
-    }
-
-    // ── GET /api/users/{userId}/activities ────────────────────────────────────
-    /**
-     * Feed Recent Activity: trộn 4 loại hoạt động rồi lấy N cái gần nhất.
-     *
-     * Gộp bằng UNION ALL thay vì 4 lượt gọi riêng để việc "lấy 10 cái mới nhất"
-     * do SQL Server quyết định trên toàn bộ dữ liệu — nếu tách ra, mỗi nguồn
-     * trả về top 10 của riêng nó rồi frontend tự trộn, một nguồn dày đặc sẽ
-     * đẩy hết các nguồn khác ra ngoài.
-     */
-    @GetMapping("/{userId}/activities")
-    public ResponseEntity<List<UserActivityResponse>> getActivities(
-            @PathVariable Integer userId,
-            @RequestParam(value = "limit", defaultValue = "10") int limit) {
-        userId = currentUser.id();
-        int capped = Math.max(1, Math.min(limit, 50));
-
-        List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT TOP (?) *
-                FROM (
-                    -- Upload tài liệu
-                    SELECT 'UPLOAD' AS activity_type,
-                           d.title AS title,
-                           d.uploaded_at AS occurred_at,
-                           CAST(NULL AS INT) AS duration_seconds,
-                           CAST(NULL AS DECIMAL(5,2)) AS score
-                    FROM dbo.DOCUMENT d
-                    WHERE d.user_id = ? AND d.deleted_at IS NULL
-
-                    UNION ALL
-
-                    -- Đọc tài liệu (heartbeat từ trang xem tài liệu)
-                    SELECT 'READING',
-                           d.title,
-                           sa.activity_date,
-                           sa.study_duration,
-                           NULL
-                    FROM dbo.STUDY_ACTIVITY sa
-                    JOIN dbo.DOCUMENT d ON d.document_id = sa.document_id
-                    WHERE sa.user_id = ?
-                      AND sa.activity_type = 'Reading'
-                      AND d.deleted_at IS NULL
-
-                    UNION ALL
-
-                    -- Nộp bài quiz
-                    SELECT 'QUIZ',
-                           q.title,
-                           ta.end_time,
-                           NULL,
-                           ta.score
-                    FROM dbo.TEST_ATTEMPT ta
-                    JOIN dbo.AI_QUESTION q ON q.question_id = ta.question_id
-                    WHERE ta.user_id = ? AND ta.end_time IS NOT NULL
-
-                    UNION ALL
-
-                    -- Mở phiên chat AI
-                    SELECT 'CHAT',
-                           cs.session_title,
-                           cs.created_at,
-                           NULL,
-                           NULL
-                    FROM dbo.CHAT_SESSION cs
-                    WHERE cs.user_id = ?
-                ) feed
-                ORDER BY occurred_at DESC
-                """, capped, userId, userId, userId, userId);
-
-        List<UserActivityResponse> activities = new ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            Object duration = row.get("duration_seconds");
-            Object score = row.get("score");
-            activities.add(UserActivityResponse.builder()
-                    .type((String) row.get("activity_type"))
-                    .title((String) row.get("title"))
-                    .occurredAt(toLocalDateTime(row.get("occurred_at")))
-                    .durationSeconds(duration == null ? null : ((Number) duration).intValue())
-                    .score(score == null ? null : new java.math.BigDecimal(score.toString()))
-                    .build());
-        }
-        return ResponseEntity.ok(activities);
-    }
-
-    /**
-     * Dung lượng dùng khi không tra được gói của user: lấy gói thấp nhất đang bán
-     * thay vì ghi cứng 1 GB, để admin đổi hạn mức Basic thì chỗ này đi theo.
-     */
-    private int fallbackStorageMb() {
-        try {
-            Integer lowest = jdbc.queryForObject("""
-                    SELECT MIN(max_storage)
-                    FROM dbo.SUBSCRIPTION_PLAN_VERSION
-                    WHERE is_active = 1
-                    """, Integer.class);
-            if (lowest != null && lowest > 0) return lowest;
-        } catch (Exception ignored) {}
-        return 1024;
-    }
-
-    private static java.time.LocalDateTime toLocalDateTime(Object value) {
-        if (value instanceof java.sql.Timestamp ts) return ts.toLocalDateTime();
-        if (value instanceof java.time.LocalDateTime ldt) return ldt;
-        return null;
-    }
-
-    // ── GET /api/users/{userId}/course-progress ───────────────────────────────
-    /**
-     * Tiến độ từng môn = số tài liệu đã đọc / tổng tài liệu của môn.
-     *
-     * "Đã đọc" nghĩa là tổng thời gian đọc tài liệu đó đạt tối thiểu
-     * MIN_READ_SECONDS. Mở nhầm rồi đóng ngay không được tính là đã học.
-     * Tài liệu trong Trash bị loại khỏi cả tử số lẫn mẫu số, nếu không việc
-     * xoá tài liệu chưa đọc sẽ làm tiến độ tụt xuống một cách vô lý.
-     */
-    @GetMapping("/{userId}/course-progress")
-    public ResponseEntity<List<CourseProgressResponse>> getCourseProgress(@PathVariable Integer userId) {
-        userId = currentUser.id();
-        final int MIN_READ_SECONDS = 30;
-
-        List<Map<String, Object>> rows = jdbc.queryForList("""
-                WITH read_docs AS (
-                    SELECT document_id, SUM(study_duration) AS read_seconds
-                    FROM dbo.STUDY_ACTIVITY
-                    WHERE user_id = ? AND activity_type = 'Reading'
-                    GROUP BY document_id
-                )
-                SELECT us.subject_id AS subject_id,
-                       COUNT(DISTINCT d.document_id) AS total_documents,
-                       COUNT(DISTINCT CASE WHEN rd.read_seconds >= ?
-                                           THEN d.document_id END) AS read_documents
-                FROM dbo.USER_SUBJECT us
-                LEFT JOIN dbo.DOCUMENT d
-                       ON d.subject_id = us.subject_id
-                      AND d.user_id = us.user_id
-                      AND d.deleted_at IS NULL
-                LEFT JOIN read_docs rd ON rd.document_id = d.document_id
-                WHERE us.user_id = ?
-                GROUP BY us.subject_id
-                """, userId, MIN_READ_SECONDS, userId);
-
-        List<CourseProgressResponse> result = new ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            int total = toInt(row.get("total_documents"));
-            int read = toInt(row.get("read_documents"));
-            result.add(CourseProgressResponse.builder()
-                    .subjectId(toInt(row.get("subject_id")))
-                    .totalDocuments(total)
-                    .readDocuments(read)
-                    .progressPercent(total == 0 ? 0 : (int) Math.round(read * 100.0 / total))
-                    .build());
-        }
-        return ResponseEntity.ok(result);
     }
 
     // ── POST /api/users/report ────────────────────────────────────────────────
@@ -442,10 +269,14 @@ public class UserController {
                     pv.max_quiz_per_month, pv.features_json AS description, us.renewal_policy
                 FROM dbo.USER_SUBSCRIPTION us
                 JOIN dbo.SUBSCRIPTION_PLAN sp ON sp.plan_id = us.plan_id
-                JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
+                LEFT JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
                 WHERE us.user_id = ?
                 ORDER BY us.end_date DESC, us.subscription_id DESC
                 """, userId);
+
+        // Quota comes from PlanQuotaService, not from pv, so the numbers shown here match what
+        // upload and quiz generation actually enforce (Basic follows the active version).
+        PlanQuotaService.PlanQuota quota = planQuotaService.getQuota(userId);
 
         if (rows.isEmpty()) {
             return ResponseEntity.ok(Map.of(
@@ -454,7 +285,8 @@ public class UserController {
                 "startDate", "",
                 "endDate", "",
                 "price", 0,
-                "maxStorage", 1024,
+                "maxStorage", quota.maxStorageMb(),
+                "maxQuiz", quota.maxQuizPerMonth(),
                 "autoRenewal", true
             ));
         }
@@ -470,8 +302,8 @@ public class UserController {
         result.put("endDate", row.get("end_date") != null ? row.get("end_date").toString() : "");
         result.put("price", row.get("price"));
         result.put("durationMonth", row.get("duration_month"));
-        result.put("maxStorage", row.get("max_storage"));
-        result.put("maxQuiz", row.get("max_quiz_per_month"));
+        result.put("maxStorage", quota.maxStorageMb());
+        result.put("maxQuiz", quota.maxQuizPerMonth());
         result.put("description", row.get("description"));
         result.put("renewalPolicy", row.get("renewal_policy"));
         result.put("autoRenewal", toBool(row.get("auto_renewal")));
@@ -602,24 +434,42 @@ public class UserController {
     @GetMapping("/{userId}/settings")
     public ResponseEntity<UserSettingsResponse> getSettings(@PathVariable Integer userId) {
         userId = currentUser.id();
-        // Các cột còn lại trong USER_SETTINGS (language, timezone,
-        // profile_visibility, show_streak, và các cờ notification khác) không
-        // được đọc ở đâu nên không trả về nữa. Cột vẫn giữ trong DB.
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT push_notifications
+                SELECT email_notifications, push_notifications,
+                       learning_notifications, ai_notifications,
+                       achievement_notifications, security_notifications,
+                       profile_visibility, show_streak, language, timezone
                 FROM dbo.USER_SETTINGS
                 WHERE user_id = ?
                 """, userId);
 
         if (rows.isEmpty()) {
             return ResponseEntity.ok(UserSettingsResponse.builder()
+                    .emailNotifications(true)
                     .pushNotifications(true)
+                    .learningNotifications(true)
+                    .aiNotifications(true)
+                    .achievementNotifications(true)
+                    .securityNotifications(true)
+                    .profileVisibility("Public")
+                    .showStreak(true)
+                    .language("en")
+                    .timezone("Asia/Ho_Chi_Minh")
                     .build());
         }
 
         Map<String, Object> row = rows.get(0);
         return ResponseEntity.ok(UserSettingsResponse.builder()
+                .emailNotifications(toBool(row.get("email_notifications")))
                 .pushNotifications(toBool(row.get("push_notifications")))
+                .learningNotifications(toBool(row.get("learning_notifications")))
+                .aiNotifications(toBool(row.get("ai_notifications")))
+                .achievementNotifications(toBool(row.get("achievement_notifications")))
+                .securityNotifications(toBool(row.get("security_notifications")))
+                .profileVisibility((String) row.get("profile_visibility"))
+                .showStreak(toBool(row.get("show_streak")))
+                .language(row.get("language") != null ? (String) row.get("language") : "en")
+                .timezone(row.get("timezone") != null ? (String) row.get("timezone") : "Asia/Ho_Chi_Minh")
                 .build());
     }
 
@@ -630,24 +480,53 @@ public class UserController {
             @RequestBody UpdateSettingsRequest req) {
         userId = currentUser.id();
 
-        // Các cột khác giữ nguyên giá trị đang có trong DB; khi INSERT thì
-        // DEFAULT của từng cột lo phần còn lại.
         int affected = jdbc.update("""
                 UPDATE dbo.USER_SETTINGS
-                SET push_notifications = COALESCE(?, push_notifications),
-                    updated_at         = GETDATE()
+                SET email_notifications       = COALESCE(?, email_notifications),
+                    push_notifications        = COALESCE(?, push_notifications),
+                    learning_notifications    = COALESCE(?, learning_notifications),
+                    ai_notifications          = COALESCE(?, ai_notifications),
+                    achievement_notifications = COALESCE(?, achievement_notifications),
+                    security_notifications    = COALESCE(?, security_notifications),
+                    profile_visibility        = COALESCE(?, profile_visibility),
+                    show_streak               = COALESCE(?, show_streak),
+                    language                  = COALESCE(?, language),
+                    timezone                  = COALESCE(?, timezone),
+                    updated_at                = GETDATE()
                 WHERE user_id = ?
                 """,
+                req.getEmailNotifications(),
                 req.getPushNotifications(),
+                req.getLearningNotifications(),
+                req.getAiNotifications(),
+                req.getAchievementNotifications(),
+                req.getSecurityNotifications(),
+                req.getProfileVisibility(),
+                req.getShowStreak(),
+                req.getLanguage(),
+                req.getTimezone(),
                 userId);
 
         if (affected == 0) {
             jdbc.update("""
-                    INSERT INTO dbo.USER_SETTINGS (user_id, push_notifications, updated_at)
-                    VALUES (?, ?, GETDATE())
+                    INSERT INTO dbo.USER_SETTINGS
+                        (user_id, email_notifications, push_notifications,
+                         learning_notifications, ai_notifications,
+                         achievement_notifications, security_notifications,
+                         profile_visibility, show_streak, language, timezone, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
                     """,
                     userId,
-                    req.getPushNotifications() != null ? req.getPushNotifications() : true);
+                    req.getEmailNotifications()       != null ? req.getEmailNotifications()       : true,
+                    req.getPushNotifications()        != null ? req.getPushNotifications()        : true,
+                    req.getLearningNotifications()    != null ? req.getLearningNotifications()    : true,
+                    req.getAiNotifications()          != null ? req.getAiNotifications()          : true,
+                    req.getAchievementNotifications() != null ? req.getAchievementNotifications() : true,
+                    req.getSecurityNotifications()    != null ? req.getSecurityNotifications()    : true,
+                    req.getProfileVisibility()        != null ? req.getProfileVisibility()        : "Public",
+                    req.getShowStreak()               != null ? req.getShowStreak()               : true,
+                    req.getLanguage()                 != null ? req.getLanguage()                 : "en",
+                    req.getTimezone()                 != null ? req.getTimezone()                 : "Asia/Ho_Chi_Minh");
         }
 
         return getSettings(userId);
