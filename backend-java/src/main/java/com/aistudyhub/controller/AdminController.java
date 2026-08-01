@@ -319,6 +319,111 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
+    // ── Major Management ────────────────────────────────────────────────
+
+    @GetMapping("/majors")
+    public List<Map<String, Object>> majors() {
+        return jdbc.queryForList("""
+            SELECT m.major_id AS id, m.major_name AS name, m.description,
+                   CONVERT(NVARCHAR(19), m.created_at, 120) AS createdAt,
+                   CONVERT(NVARCHAR(19), m.updated_at, 120) AS updatedAt,
+                   COUNT(DISTINCT s.semester_id) AS semesters,
+                   COUNT(DISTINCT sub.subject_id) AS subjects,
+                   COUNT(DISTINCT d.document_id) AS docs
+            FROM dbo.MAJOR m
+            LEFT JOIN dbo.SEMESTER s ON s.major_id = m.major_id
+            LEFT JOIN dbo.SUBJECT sub ON sub.semester_id = s.semester_id
+            LEFT JOIN dbo.DOCUMENT d ON d.subject_id = sub.subject_id
+            GROUP BY m.major_id, m.major_name, m.description, m.created_at, m.updated_at
+            ORDER BY m.major_id DESC
+            """, Map.of());
+    }
+
+    @PostMapping("/majors")
+    public ResponseEntity<Map<String, Object>> createMajor(@RequestBody Map<String, Object> body) {
+        Integer id = jdbc.queryForObject(
+            "INSERT INTO dbo.MAJOR (major_name, description, created_at) OUTPUT INSERTED.major_id VALUES (:name, :description, GETDATE())",
+            params("name", required(body, "name")).addValue("description", str(body, "description", null)),
+            Integer.class);
+        return ResponseEntity.status(HttpStatus.CREATED).body(majorById(id));
+    }
+
+    @PutMapping("/majors/{id}")
+    public Map<String, Object> updateMajor(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
+        int rows = jdbc.update(
+            "UPDATE dbo.MAJOR SET major_name = :name, description = :description, updated_at = GETDATE() WHERE major_id = :id",
+            params("id", id).addValue("name", required(body, "name")).addValue("description", str(body, "description", null)));
+        if (rows == 0) throw notFound("Major not found.");
+        return majorById(id);
+    }
+
+    @Transactional
+    @DeleteMapping("/majors/{id}")
+    public ResponseEntity<Void> deleteMajor(@PathVariable Integer id) {
+        String sql = """
+            BEGIN TRAN;
+            BEGIN TRY
+                SELECT semester_id INTO #TempSem FROM dbo.SEMESTER WHERE major_id = :id;
+                SELECT subject_id  INTO #TempSub FROM dbo.SUBJECT  WHERE semester_id IN (SELECT semester_id FROM #TempSem);
+                SELECT document_id INTO #TempDoc FROM dbo.DOCUMENT WHERE subject_id  IN (SELECT subject_id  FROM #TempSub);
+                SELECT question_id INTO #TempQ   FROM dbo.AI_QUESTION WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                SELECT quiz_id     INTO #TempQuiz FROM dbo.QUIZ_TEST    WHERE question_id IN (SELECT question_id FROM #TempQ);
+
+                DELETE FROM dbo.USER_ANSWER    WHERE attempt_id IN (SELECT attempt_id FROM dbo.TEST_ATTEMPT WHERE test_id IN (SELECT quiz_id FROM #TempQuiz) OR question_id IN (SELECT question_id FROM #TempQ));
+                DELETE FROM dbo.TEST_RESULT    WHERE attempt_id IN (SELECT attempt_id FROM dbo.TEST_ATTEMPT WHERE test_id IN (SELECT quiz_id FROM #TempQuiz) OR question_id IN (SELECT question_id FROM #TempQ));
+                DELETE FROM dbo.TEST_ATTEMPT   WHERE test_id IN (SELECT quiz_id FROM #TempQuiz) OR question_id IN (SELECT question_id FROM #TempQ);
+                DELETE FROM dbo.ANSWER_OPTION  WHERE question_id IN (SELECT quiz_id FROM #TempQuiz);
+                DELETE FROM dbo.QUIZ_TEST      WHERE quiz_id IN (SELECT quiz_id FROM #TempQuiz);
+                DELETE FROM dbo.AI_QUESTION    WHERE question_id IN (SELECT question_id FROM #TempQ);
+
+                DELETE FROM dbo.STUDY_ACTIVITY WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.COMMENT         WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.REPORT          WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.AI_SUMMARY      WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.AI_USAGE_LOG    WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.DOCUMENT_SHARE  WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.CHAT_MESSAGE    WHERE session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id IN (SELECT document_id FROM #TempDoc));
+                DELETE FROM dbo.CHAT_SESSION    WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.AI_SUGGESTION   WHERE document_id IN (SELECT document_id FROM #TempDoc) OR subject_id IN (SELECT subject_id FROM #TempSub) OR semester_id IN (SELECT semester_id FROM #TempSem);
+
+                DELETE FROM dbo.DOCUMENT        WHERE document_id IN (SELECT document_id FROM #TempDoc);
+                DELETE FROM dbo.USER_SUBJECT    WHERE subject_id IN (SELECT subject_id FROM #TempSub);
+                DELETE FROM dbo.SUBJECT         WHERE subject_id IN (SELECT subject_id FROM #TempSub);
+                DELETE FROM dbo.SEMESTER        WHERE semester_id IN (SELECT semester_id FROM #TempSem);
+                DELETE FROM dbo.MAJOR           WHERE major_id = :id;
+
+                DROP TABLE #TempSem; DROP TABLE #TempSub; DROP TABLE #TempDoc; DROP TABLE #TempQ; DROP TABLE #TempQuiz;
+                COMMIT TRAN;
+            END TRY
+            BEGIN CATCH
+                IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+                THROW;
+            END CATCH
+            """;
+        int rows = jdbc.update(sql, Map.of("id", id));
+        if (rows == 0) throw notFound("Major not found.");
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/majors/{id}/semesters")
+    public List<Map<String, Object>> semestersByMajor(@PathVariable Integer id) {
+        return jdbc.queryForList("""
+            SELECT s.semester_id AS id, s.semester_name AS name,
+                   CONVERT(NVARCHAR(19), s.created_at, 120) AS createdAt,
+                   CONVERT(NVARCHAR(19), s.updated_at, 120) AS updatedAt,
+                   COUNT(DISTINCT sub.subject_id) AS subjects,
+                   COUNT(DISTINCT d.document_id) AS docs
+            FROM dbo.SEMESTER s
+            LEFT JOIN dbo.SUBJECT sub ON sub.semester_id = s.semester_id
+            LEFT JOIN dbo.DOCUMENT d ON d.subject_id = sub.subject_id
+            WHERE s.major_id = :majorId
+            GROUP BY s.semester_id, s.semester_name, s.created_at, s.updated_at
+            ORDER BY s.semester_id
+            """, Map.of("majorId", id));
+    }
+
+    // ── Library Management ──────────────────────────────────────────────
+
     @GetMapping("/library/semesters")
     public List<Map<String, Object>> semesters() {
         return jdbc.queryForList("""
@@ -337,7 +442,7 @@ public class AdminController {
 
     @PostMapping("/library/semesters")
     public ResponseEntity<Map<String, Object>> createSemester(@RequestBody Map<String, Object> body) {
-        Integer id = jdbc.queryForObject("INSERT INTO dbo.SEMESTER (semester_name, created_at, updated_at) OUTPUT INSERTED.semester_id VALUES (:name, GETDATE(), NULL)", Map.of("name", required(body, "name")), Integer.class);
+        Integer id = jdbc.queryForObject("INSERT INTO dbo.SEMESTER (semester_name, major_id, created_at, updated_at) OUTPUT INSERTED.semester_id VALUES (:name, :majorId, GETDATE(), NULL)", params("name", required(body, "name")).addValue("majorId", body.get("majorId") instanceof Number n ? n.intValue() : null), Integer.class);
         return ResponseEntity.status(HttpStatus.CREATED).body(semesterById(id));
     }
 
@@ -939,7 +1044,15 @@ public class AdminController {
         return jdbc.update(sql, params);
     }
 
-    private ResponseStatusException notFound(String message) {
+    private Map<String, Object> majorById(Integer id) {
+        return one("SELECT m.major_id AS id, m.major_name AS name, m.description, CONVERT(NVARCHAR(19), m.created_at, 120) AS createdAt, CONVERT(NVARCHAR(19), m.updated_at, 120) AS updatedAt FROM dbo.MAJOR m WHERE m.major_id = :id", Map.of("id", id));
+    }
+
+    private Map<String, Object> semesterByMajorId(Integer semesterId, Integer majorId) {
+        return one("SELECT s.semester_id AS id, s.semester_name AS name, s.major_id AS majorId, CONVERT(NVARCHAR(19), s.created_at, 120) AS createdAt, CONVERT(NVARCHAR(19), s.updated_at, 120) AS updatedAt FROM dbo.SEMESTER s WHERE s.semester_id = :id AND s.major_id = :majorId", Map.of("id", semesterId, "majorId", majorId));
+    }
+
+        private ResponseStatusException notFound(String message) {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, message);
     }
 }
