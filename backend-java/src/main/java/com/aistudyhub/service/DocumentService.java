@@ -33,9 +33,6 @@ import org.apache.poi.xslf.usermodel.XSLFSlide;
 import org.apache.poi.xslf.usermodel.XSLFTextShape;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.jodconverter.core.office.OfficeException;
-import org.jodconverter.local.JodConverter;
-import org.jodconverter.local.office.LocalOfficeManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -50,8 +47,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -89,6 +84,7 @@ public class DocumentService {
     private final EmailService emailService;
     private final JdbcTemplate jdbcTemplate;
     private final PlanQuotaService planQuotaService;
+    private final DocumentConversionService documentConversionService;
     private final ApplicationEventPublisher eventPublisher;
     private final com.aistudyhub.security.CurrentUser currentUser;
 
@@ -106,9 +102,6 @@ public class DocumentService {
 
     @Value("${supabase.url}")
     private String supabaseUrl;
-
-    @Value("${document-conversion.office-home:}")
-    private String officeHome;
 
     // Normalized note.
     @Transactional
@@ -1173,51 +1166,11 @@ public class DocumentService {
     }
 
     private UploadPayload convertToPdf(MultipartFile file, String originalName, String extension) throws IOException {
-        Path tempDir = Files.createTempDirectory("aistudyhub-convert-");
-        Path inputPath = tempDir.resolve("input." + extension);
-        Path outputPath = tempDir.resolve("output.pdf");
-        LocalOfficeManager officeManager = null;
-
-        try {
-            Files.write(inputPath, file.getBytes());
-
-            LocalOfficeManager.Builder builder = LocalOfficeManager.builder();
-            if (officeHome != null && !officeHome.isBlank()) {
-                builder.officeHome(officeHome.trim());
-            }
-
-            officeManager = builder.install().build();
-            officeManager.start();
-            JodConverter.convert(inputPath.toFile()).to(outputPath.toFile()).execute();
-
-            return new UploadPayload(
-                    ensurePdfFileName(originalName),
-                    "pdf",
-                    MediaType.APPLICATION_PDF,
-                    Files.readAllBytes(outputPath));
-        } catch (OfficeException e) {
-            throw new BadRequestException(
-                    "Could not convert \"" + originalName + "\" to PDF. Please install LibreOffice or configure DOCUMENT_CONVERSION_OFFICE_HOME. Detail: "
-                            + e.getMessage());
-        } finally {
-            if (officeManager != null) {
-                try {
-                    officeManager.stop();
-                } catch (OfficeException ignored) {
-                }
-            }
-            deleteQuietly(outputPath);
-            deleteQuietly(inputPath);
-            deleteQuietly(tempDir);
-        }
-    }
-
-    private void deleteQuietly(Path path) {
-        if (path == null) return;
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException ignored) {
-        }
+        return new UploadPayload(
+                ensurePdfFileName(originalName),
+                "pdf",
+                MediaType.APPLICATION_PDF,
+                documentConversionService.convertToPdf(file.getBytes(), extension, originalName));
     }
 
     private String ensurePdfFileName(String originalName) {
