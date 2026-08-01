@@ -1251,5 +1251,15 @@ IF OBJECT_ID(N'dbo.CK_PLAN_VERSION_yearly_discount', N'C') IS NULL
         CHECK (yearly_discount_percent BETWEEN 0 AND 100);
 GO
 
+/*==============================================================================
+  11. Subject & Quiz Performance Indexing Optimization
+==============================================================================*/
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PRACTICE_TEST_user_created' AND object_id = OBJECT_ID(N'dbo.PRACTICE_TEST'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_PRACTICE_TEST_user_created
+    ON dbo.PRACTICE_TEST (user_id, created_at DESC);
+END
+GO
+
 PRINT N'Migrations applied successfully.';
 GO
