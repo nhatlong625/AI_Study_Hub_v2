@@ -187,12 +187,12 @@ public class DocumentController {
     }
 
     /**
-     * Resolve shareId → document — PUBLIC, không cần đăng nhập.
-     * Dùng cho trang /share/:shareId ở FE.
+     * Resolve shareToken → document — PUBLIC, không cần đăng nhập.
+     * Dùng cho trang /share/:shareToken ở FE.
      */
-    @GetMapping("/share/{shareId}")
-    public ResponseEntity<DocumentResponse> getByShareId(@PathVariable Integer shareId) {
-        return ResponseEntity.ok(documentService.getDocumentByShareId(shareId));
+    @GetMapping("/share/{shareToken}")
+    public ResponseEntity<DocumentResponse> getByShareToken(@PathVariable String shareToken) {
+        return ResponseEntity.ok(documentService.getDocumentByShareToken(shareToken));
     }
 
 

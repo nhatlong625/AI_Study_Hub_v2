@@ -19,8 +19,8 @@ public interface DocumentShareRepository extends JpaRepository<DocumentShare, In
     List<DocumentShare> findAllByDocumentIdAndShareTypeAndStatus(
             Integer documentId, String shareType, String status);
 
-    // Tìm theo shareId để resolve link → document (endpoint public GET /share/{shareId})
-    Optional<DocumentShare> findByShareIdAndStatus(Integer shareId, String status);
+    // Resolve link public GET /share/{shareToken} → document
+    Optional<DocumentShare> findByShareTokenAndStatus(String shareToken, String status);
 
     @Transactional
     void deleteByDocumentId(Integer documentId);

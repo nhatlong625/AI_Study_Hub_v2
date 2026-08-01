@@ -56,6 +56,31 @@ public class DatabaseSchemaGuard {
                         ON dbo.DOCUMENT(deleted_at, user_id)
                 """);
 
+        run("DOCUMENT_SHARE.share_token", """
+                IF OBJECT_ID(N'dbo.DOCUMENT_SHARE', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT_SHARE', N'share_token') IS NULL
+                    ALTER TABLE dbo.DOCUMENT_SHARE ADD share_token NVARCHAR(64) NULL
+                """);
+        // Link cũ đang dùng share_id trong URL: cấp token cho các row chưa có để link mới sinh ra
+        // luôn có token, link cũ thì hết hiệu lực (đây chính là mục đích — share_id đoán được).
+        run("DOCUMENT_SHARE.share_token backfill", """
+                IF OBJECT_ID(N'dbo.DOCUMENT_SHARE', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT_SHARE', N'share_token') IS NOT NULL
+                    UPDATE dbo.DOCUMENT_SHARE
+                    SET share_token = REPLACE(CONVERT(NVARCHAR(36), NEWID()), '-', '')
+                    WHERE share_token IS NULL
+                """);
+        run("UX_DOCUMENT_SHARE_share_token", """
+                IF OBJECT_ID(N'dbo.DOCUMENT_SHARE', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT_SHARE', N'share_token') IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM sys.indexes
+                                   WHERE object_id = OBJECT_ID(N'dbo.DOCUMENT_SHARE')
+                                     AND name = N'UX_DOCUMENT_SHARE_share_token')
+                    CREATE UNIQUE INDEX UX_DOCUMENT_SHARE_share_token
+                        ON dbo.DOCUMENT_SHARE(share_token)
+                        WHERE share_token IS NOT NULL
+                """);
+
         run("USER.is_verified", """
                 IF OBJECT_ID(N'dbo.[USER]', N'U') IS NOT NULL
                    AND COL_LENGTH(N'dbo.[USER]', N'is_verified') IS NULL

@@ -33,9 +33,6 @@ import org.apache.poi.xslf.usermodel.XSLFSlide;
 import org.apache.poi.xslf.usermodel.XSLFTextShape;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.jodconverter.core.office.OfficeException;
-import org.jodconverter.local.JodConverter;
-import org.jodconverter.local.office.LocalOfficeManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -50,8 +47,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -89,6 +84,7 @@ public class DocumentService {
     private final EmailService emailService;
     private final JdbcTemplate jdbcTemplate;
     private final PlanQuotaService planQuotaService;
+    private final DocumentConversionService documentConversionService;
     private final ApplicationEventPublisher eventPublisher;
     private final com.aistudyhub.security.CurrentUser currentUser;
 
@@ -107,9 +103,6 @@ public class DocumentService {
     @Value("${supabase.url}")
     private String supabaseUrl;
 
-    @Value("${document-conversion.office-home:}")
-    private String officeHome;
-
     // Normalized note.
     @Transactional
     public DocumentResponse upload(MultipartFile file, String title,
@@ -117,10 +110,15 @@ public class DocumentService {
                                    String visibilityStatus) throws Exception {
         String originalName = file.getOriginalFilename() == null ? "document" : file.getOriginalFilename();
 
-        // Storage limit check.
+        // Chặn sớm theo kích thước file gốc để khỏi tốn công convert khi đã vượt quota.
         checkStorageLimit(userId, file.getSize());
 
         UploadPayload uploadPayload = preparePdfUploadPayload(file, originalName);
+
+        // Cái thực sự lưu là bản PDF đã convert — DOCX/PPTX ra PDF thường phình to hơn file gốc,
+        // nên phải kiểm tra lại bằng đúng số byte sẽ ghi vào storage.
+        checkStorageLimit(userId, uploadPayload.bytes().length);
+
         String safeName = UNSAFE_OBJECT_NAME_CHARS.matcher(uploadPayload.fileName()).replaceAll("_");
         String objectKey = "students/" + userId + "/subjects/" + subjectId + "/" + UUID.randomUUID() + "_" + safeName;
 
@@ -484,13 +482,21 @@ public class DocumentService {
         // Normalized note.
         return documentShareRepository
                 .findFirstByDocumentIdAndShareTypeAndStatus(documentId, "LINK", "ACTIVE")
-                .map(this::toShareDto)
+                .map(existing -> {
+                    // Row tạo từ trước khi có share_token (hoặc backfill lỗi) thì cấp token ngay.
+                    if (existing.getShareToken() == null || existing.getShareToken().isBlank()) {
+                        existing.setShareToken(newShareToken());
+                        documentShareRepository.save(existing);
+                    }
+                    return toShareDto(existing);
+                })
                 .orElseGet(() -> {
                     DocumentShare share = new DocumentShare();
                     share.setDocumentId(documentId);
                     share.setUserId(userId);
                     share.setShareType("LINK");
                     share.setStatus("ACTIVE");
+                    share.setShareToken(newShareToken());
                     return toShareDto(documentShareRepository.save(share));
                 });
     }
@@ -514,21 +520,30 @@ public class DocumentService {
      *
      *
      */
-    public DocumentResponse getDocumentByShareId(Integer shareId) {
+    public DocumentResponse getDocumentByShareToken(String shareToken) {
+        if (shareToken == null || shareToken.isBlank()) {
+            throw new ResourceNotFoundException("Share link not found or has been revoked.");
+        }
         DocumentShare share = documentShareRepository
-                .findByShareIdAndStatus(shareId, "ACTIVE")
+                .findByShareTokenAndStatus(shareToken.trim(), "ACTIVE")
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Share link not found or has been revoked."));
         return getById(share.getDocumentId());
+    }
+
+    // 128 bit ngẫu nhiên dạng hex — không đoán/duyệt được như share_id tự tăng.
+    private String newShareToken() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     private DocumentShareResponse toShareDto(DocumentShare share) {
         DocumentShareResponse r = new DocumentShareResponse();
         r.setShareId(share.getShareId());
         r.setDocumentId(share.getDocumentId());
+        r.setShareToken(share.getShareToken());
         r.setShareType(share.getShareType());
         r.setStatus(share.getStatus());
-        r.setShareUrl(frontendUrl + "/share/" + share.getShareId());
+        r.setShareUrl(frontendUrl + "/share/" + share.getShareToken());
         return r;
     }
     @Transactional
@@ -1151,51 +1166,11 @@ public class DocumentService {
     }
 
     private UploadPayload convertToPdf(MultipartFile file, String originalName, String extension) throws IOException {
-        Path tempDir = Files.createTempDirectory("aistudyhub-convert-");
-        Path inputPath = tempDir.resolve("input." + extension);
-        Path outputPath = tempDir.resolve("output.pdf");
-        LocalOfficeManager officeManager = null;
-
-        try {
-            Files.write(inputPath, file.getBytes());
-
-            LocalOfficeManager.Builder builder = LocalOfficeManager.builder();
-            if (officeHome != null && !officeHome.isBlank()) {
-                builder.officeHome(officeHome.trim());
-            }
-
-            officeManager = builder.install().build();
-            officeManager.start();
-            JodConverter.convert(inputPath.toFile()).to(outputPath.toFile()).execute();
-
-            return new UploadPayload(
-                    ensurePdfFileName(originalName),
-                    "pdf",
-                    MediaType.APPLICATION_PDF,
-                    Files.readAllBytes(outputPath));
-        } catch (OfficeException e) {
-            throw new BadRequestException(
-                    "Could not convert \"" + originalName + "\" to PDF. Please install LibreOffice or configure DOCUMENT_CONVERSION_OFFICE_HOME. Detail: "
-                            + e.getMessage());
-        } finally {
-            if (officeManager != null) {
-                try {
-                    officeManager.stop();
-                } catch (OfficeException ignored) {
-                }
-            }
-            deleteQuietly(outputPath);
-            deleteQuietly(inputPath);
-            deleteQuietly(tempDir);
-        }
-    }
-
-    private void deleteQuietly(Path path) {
-        if (path == null) return;
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException ignored) {
-        }
+        return new UploadPayload(
+                ensurePdfFileName(originalName),
+                "pdf",
+                MediaType.APPLICATION_PDF,
+                documentConversionService.convertToPdf(file.getBytes(), extension, originalName));
     }
 
     private String ensurePdfFileName(String originalName) {

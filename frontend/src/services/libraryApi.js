@@ -264,9 +264,9 @@ export const documentApi = {
     }
   },
 
-  // Load document by shareId; public and does not require auth.
-  getByShareId: async (shareId) => {
-    const res = await fetch(`${BASE_URL}/documents/share/${shareId}`, {
+  // Load document by share token; public and does not require auth.
+  getByShareToken: async (shareToken) => {
+    const res = await fetch(`${BASE_URL}/documents/share/${encodeURIComponent(shareToken)}`, {
       headers: getHeaders(),
     });
     if (!res.ok) {
@@ -365,9 +365,9 @@ export const documentApi = {
 // COMMENT API
 // ============================================================
 export const commentApi = {
-  getByDocument: async (documentId, { publicAccess = false, shareId = null } = {}) => {
-    const path = shareId
-      ? `${BASE_URL}/comments/share/${shareId}`
+  getByDocument: async (documentId, { publicAccess = false, shareToken = null } = {}) => {
+    const path = shareToken
+      ? `${BASE_URL}/comments/share/${encodeURIComponent(shareToken)}`
       : publicAccess
         ? `${BASE_URL}/comments/public/document/${documentId}`
         : `${BASE_URL}/comments/document/${documentId}`;

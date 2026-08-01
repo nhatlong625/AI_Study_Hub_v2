@@ -102,7 +102,7 @@ function isSummaryInProgress(status) {
   return status === "PENDING" || status === "PROCESSING";
 }
 
-export default function StudentDocumentViewPage({ _sharedDoc, _shareId } = {}) {
+export default function StudentDocumentViewPage({ _sharedDoc, _shareToken } = {}) {
   const navigate = useNavigate();
   const { documentId } = useParams();
   const location = useLocation();
@@ -432,7 +432,7 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareId } = {}) {
     try {
       const data = await commentApi.getByDocument(doc.documentId, {
         publicAccess,
-        shareId: _shareId,
+        shareToken: _shareToken,
       });
       console.log("DEBUG raw comments:", JSON.stringify(data[0]));
       console.log("DEBUG currentUser:", JSON.stringify(getCurrentUser()));
