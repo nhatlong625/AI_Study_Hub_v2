@@ -117,10 +117,15 @@ public class DocumentService {
                                    String visibilityStatus) throws Exception {
         String originalName = file.getOriginalFilename() == null ? "document" : file.getOriginalFilename();
 
-        // Storage limit check.
+        // Chặn sớm theo kích thước file gốc để khỏi tốn công convert khi đã vượt quota.
         checkStorageLimit(userId, file.getSize());
 
         UploadPayload uploadPayload = preparePdfUploadPayload(file, originalName);
+
+        // Cái thực sự lưu là bản PDF đã convert — DOCX/PPTX ra PDF thường phình to hơn file gốc,
+        // nên phải kiểm tra lại bằng đúng số byte sẽ ghi vào storage.
+        checkStorageLimit(userId, uploadPayload.bytes().length);
+
         String safeName = UNSAFE_OBJECT_NAME_CHARS.matcher(uploadPayload.fileName()).replaceAll("_");
         String objectKey = "students/" + userId + "/subjects/" + subjectId + "/" + UUID.randomUUID() + "_" + safeName;
 
