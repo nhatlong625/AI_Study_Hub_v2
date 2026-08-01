@@ -73,6 +73,32 @@ export const adminService = {
   deleteUser: async (id) => request(`/api/admin/users/${id}`, {
     method: 'DELETE',
   }),
+  // Major management
+  getMajors: async () => request('/api/admin/majors'),
+  createMajor: async (major) => request('/api/admin/majors', {
+    method: 'POST',
+    body: JSON.stringify({ name: major.name, description: major.description }),
+  }),
+  updateMajor: async (id, major) => request(`/api/admin/majors/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name: major.name, description: major.description }),
+  }),
+  deleteMajor: async (id) => request(`/api/admin/majors/${id}`, {
+    method: 'DELETE',
+  }),
+  getSemestersByMajor: async (majorId) => request(`/api/admin/majors/${majorId}/semesters`),
+  createSemesterForMajor: async (majorId, semester) => request(`/api/admin/library/semesters`, {
+    method: 'POST',
+    body: JSON.stringify({ name: semester.name, majorId }),
+  }),
+  updateSemester: async (id, semester) => request(`/api/admin/library/semesters/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name: semester.name }),
+  }),
+  deleteSemester: async (id) => request(`/api/admin/library/semesters/${id}`, {
+    method: 'DELETE',
+  }),
+
   getLibrarySemesters: async () => request('/api/admin/library/semesters'),
   createLibrarySemester: async (semester) => request('/api/admin/library/semesters', {
     method: 'POST',

@@ -1,4 +1,4 @@
-USE master;
+﻿USE master;
 GO
 
 /*==============================================================================
@@ -170,17 +170,37 @@ GO
   2. Library, courses, and documents
 ==============================================================================*/
 
+IF OBJECT_ID(N'dbo.MAJOR', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.MAJOR
+    (
+        major_id    INT IDENTITY(1,1) NOT NULL,
+        major_name  NVARCHAR(200) NOT NULL,
+        description NVARCHAR(500) NULL,
+        created_at  DATETIME NOT NULL CONSTRAINT DF_MAJOR_created_at DEFAULT GETDATE(),
+        updated_at  DATETIME NULL,
+        CONSTRAINT PK_MAJOR PRIMARY KEY (major_id),
+        CONSTRAINT UQ_MAJOR_name UNIQUE (major_name)
+    );
+END
+GO
+
 IF OBJECT_ID(N'dbo.SEMESTER', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.SEMESTER
     (
         semester_id   INT IDENTITY(1,1) NOT NULL,
         semester_name NVARCHAR(100) NOT NULL,
+        major_id      INT NULL,
         created_at    DATETIME NOT NULL,
         updated_at    DATETIME NULL,
         CONSTRAINT PK_SEMESTER PRIMARY KEY (semester_id)
     );
 END
+GO
+
+IF COL_LENGTH('dbo.SEMESTER', 'major_id') IS NULL
+    ALTER TABLE dbo.SEMESTER ADD major_id INT NULL;
 GO
 
 IF OBJECT_ID(N'dbo.SUBJECT', N'U') IS NULL

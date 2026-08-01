@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { adminService } from '../../services/adminService';
 
 const ICON_MAP = {
@@ -78,6 +78,12 @@ function LibraryManagementPage() {
   const [deleteDoc, setDeleteDoc] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [majors, setMajors] = useState([]);
+  const [selectedMajor, setSelectedMajor] = useState(null);
+  const [showMajorModal, setShowMajorModal] = useState(false);
+  const [editingMajor, setEditingMajor] = useState(null);
+  const [majorForm, setMajorForm] = useState({ name: '', description: '' });
+  const [deleteMajor, setDeleteMajor] = useState(null);
   const [error, setError] = useState('');
   const menuRef = useRef(null);
 
@@ -115,14 +121,28 @@ function LibraryManagementPage() {
   };
   const pageNums = getPageNums();
 
-  const totalCourses = librarySemesters.reduce((sum, semester) => sum + semester.courses, 0);
+  const totalMajors = majors.length; const totalCourses = librarySemesters.reduce((sum, semester) => sum + semester.courses, 0);
   const totalDocs = librarySemesters.reduce((sum, semester) => sum + semester.docs, 0);
 
-  const loadSemesters = async () => {
+  const loadMajors = async () => {
+    try {
+      const data = await adminService.getMajors();
+      setMajors(Array.isArray(data) ? data : []);
+    } catch (err) {
+      // majors listing failure is non-critical
+    }
+  };
+
+  const loadSemesters = async (majorId) => {
     try {
       setIsLoading(true);
       setError('');
-      const semesters = await adminService.getLibrarySemesters();
+      let semesters;
+      if (majorId) {
+        semesters = await adminService.getSemestersByMajor(majorId);
+      } else {
+        semesters = await adminService.getLibrarySemesters();
+      }
       setLibrarySemesters(semesters);
       setSelectedSemester(current => {
         if (!current) return current;
@@ -134,6 +154,15 @@ function LibraryManagementPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const selectMajor = (major) => {
+    setSelectedMajor(major);
+    setSelectedSemester(null);
+    setSelectedCourse(null);
+    setSelectedCourseDocuments([]);
+    setCreateCourseModal(false);
+    loadSemesters(major ? major.id : null);
   };
 
   const loadCourses = async (semester) => {
@@ -164,7 +193,8 @@ function LibraryManagementPage() {
   };
 
   useEffect(() => {
-    loadSemesters();
+    loadMajors();
+    loadSemesters(null);
   }, []);
 
   // Close dropdown when clicking outside
@@ -233,12 +263,40 @@ function LibraryManagementPage() {
     setDeleteSemester(row);
   }
 
+  // ── Major CRUD ────────────────────────────────────────────────
+  async function handleCreateMajor() {
+    if (!majorForm.name.trim()) return;
+    try { setIsSaving(true); setError('');
+      await adminService.createMajor(majorForm);
+      setShowMajorModal(false); setMajorForm({ name: '', description: '' });
+      await loadMajors();
+    } catch (err) { setError(err.message); } finally { setIsSaving(false); }
+  }
+  async function handleUpdateMajor() {
+    if (!majorForm.name.trim() || !editingMajor) return;
+    try { setIsSaving(true); setError('');
+      await adminService.updateMajor(editingMajor.id, majorForm);
+      setShowMajorModal(false); setEditingMajor(null); setMajorForm({ name: '', description: '' });
+      await loadMajors();
+      if (selectedMajor?.id === editingMajor.id) setSelectedMajor(null);
+    } catch (err) { setError(err.message); } finally { setIsSaving(false); }
+  }
+  async function handleDeleteMajor() {
+    if (!deleteMajor) return;
+    try { setIsSaving(true); setError('');
+      await adminService.deleteMajor(deleteMajor.id);
+      setDeleteMajor(null);
+      if (selectedMajor?.id === deleteMajor.id) { setSelectedMajor(null); setSelectedSemester(null); }
+      await loadMajors(); await loadSemesters(null);
+    } catch (err) { setError(err.message); } finally { setIsSaving(false); }
+  }
+
   async function handleCreateSemester() {
     try {
       setIsSaving(true);
       setError('');
-      await adminService.createLibrarySemester({ name: createForm.name.trim() });
-      await loadSemesters();
+      await adminService.createSemesterForMajor(selectedMajor ? selectedMajor.id : null, { name: createForm.name.trim() });
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
       setCreateModal(false);
       setCreateForm(EMPTY_FORM);
     } catch (err) {
@@ -253,7 +311,7 @@ function LibraryManagementPage() {
       setIsSaving(true);
       setError('');
       await adminService.updateLibrarySemester(editSemester.id, { name: editSemester.name.trim() });
-      await loadSemesters();
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
       setEditSemester(null);
     } catch (err) {
       setError(err.message);
@@ -267,7 +325,7 @@ function LibraryManagementPage() {
       setIsSaving(true);
       setError('');
       await adminService.deleteLibrarySemester(deleteSemester.id);
-      await loadSemesters();
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
       setDeleteSemester(null);
     } catch (err) {
       setError(err.message);
@@ -282,7 +340,7 @@ function LibraryManagementPage() {
       setError('');
       await adminService.createLibraryCourse(selectedSemester.id, createCourseForm);
       await loadCourses(selectedSemester);
-      await loadSemesters();
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
       setCreateCourseModal(false);
       setCreateCourseForm(EMPTY_COURSE_FORM);
     } catch (err) {
@@ -309,7 +367,7 @@ function LibraryManagementPage() {
       setError('');
       await adminService.updateLibraryCourse(editCourse.id, editCourseForm);
       await loadCourses(selectedSemester);
-      await loadSemesters();
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
       setEditCourse(null);
       setEditCourseForm(EMPTY_COURSE_FORM);
     } catch (err) {
@@ -331,7 +389,7 @@ function LibraryManagementPage() {
       setError('');
       await adminService.deleteLibraryCourse(deleteCourse.id, true);
       await loadCourses(selectedSemester);
-      await loadSemesters();
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
       setSelectedCourse(current => current?.id === deleteCourse.id ? null : current);
       setSelectedCourseDocuments(current => deleteCourse.id === selectedCourse?.id ? [] : current);
       setDeleteCourse(null);
@@ -375,7 +433,7 @@ function LibraryManagementPage() {
         setSelectedCourses(courses);
         setSelectedCourse(current => current ? courses.find(course => course.id === current.id) || current : current);
       }
-      await loadSemesters();
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
     } catch (err) {
       setError(err.message || 'Could not delete document.');
     } finally {
@@ -927,19 +985,54 @@ function LibraryManagementPage() {
   }
 
   return (
-    <div className="lib-page">
-      {/* Header */}
-      <div className="lib-header">
-        <h1 className="lib-title">Library Management</h1>
-        <p className="lib-subtitle">Manage semesters, course folders, user libraries, uploaded documents, and storage usage across the platform.</p>
-      </div>
-
-      {/* Stat Cards */}
-      <div className="lib-stats-row">
-        <div className="lib-stat-card">
-          <div className="lib-stat-label">Total Semesters</div>
-          <div className="lib-stat-value">{librarySemesters.length}</div>
+    <div style={{ display: 'flex', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+      {/* ── Major Sidebar ─────────────────────────────────── */}
+      <div style={{ width: 220, minWidth: 220, background: '#f9fafb', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#374151' }}>Majors</h3>
+          <button onClick={() => { setEditingMajor(null); setMajorForm({ name: '', description: '' }); setShowMajorModal(true); }}
+            style={{ padding: '2px 8px', borderRadius: 4, border: 'none', background: '#6366f1', color: '#fff', fontSize: 11, cursor: 'pointer', fontWeight: 500 }}>
+            + Add
+          </button>
         </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
+          <div onClick={() => selectMajor(null)}
+            style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', marginBottom: 2, fontSize: '13px', background: !selectedMajor ? '#eef2ff' : 'transparent', border: !selectedMajor ? '1px solid #6366f1' : '1px solid transparent', color: !selectedMajor ? '#4338ca' : '#6b7280', fontWeight: !selectedMajor ? 600 : 400 }}>
+            All Majors
+          </div>
+          {majors.map(m => (
+            <div key={m.id} onClick={() => selectMajor(m)}
+              style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', marginBottom: 2, fontSize: '13px', background: selectedMajor?.id === m.id ? '#eef2ff' : 'transparent', border: selectedMajor?.id === m.id ? '1px solid #6366f1' : '1px solid transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: selectedMajor?.id === m.id ? 600 : 400, color: selectedMajor?.id === m.id ? '#4338ca' : '#374151' }}>{m.name}</span>
+              <span style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                <button onClick={(e) => { e.stopPropagation(); setEditingMajor(m); setMajorForm({ name: m.name, description: m.description || '' }); setShowMajorModal(true); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: '1px 4px' }} title="Edit">&#9998;</button>
+                <button onClick={(e) => { e.stopPropagation(); setDeleteMajor(m); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: '1px 4px' }} title="Delete">&#128465;</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* ── Main content ─────────────────────────────────── */}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        <div className="lib-page" style={{ height: 'auto' }}>
+          {/* Header */}
+          <div className="lib-header">
+            <h1 className="lib-title">Library Management</h1>
+            <p className="lib-subtitle">Manage semesters, course folders, user libraries, uploaded documents, and storage usage across the platform.</p>
+          </div>
+
+          {/* Stat Cards */}
+          <div className="lib-stats-row">
+            <div className="lib-stat-card">
+              <div className="lib-stat-label">Total Majors</div>
+              <div className="lib-stat-value">{majors.length}</div>
+            </div>
+            <div className="lib-stat-card">
+              <div className="lib-stat-label">Total Semesters</div>
+              <div className="lib-stat-value">{librarySemesters.length}</div>
+            </div>
         <div className="lib-stat-card">
           <div className="lib-stat-label">Course Folders</div>
           <div className="lib-stat-value">{totalCourses}</div>
@@ -1166,6 +1259,61 @@ function LibraryManagementPage() {
       )}
 
       {/* CREATE MODAL */}
+      {/* ── Major Modals ────────────────────────────────────── */}
+      {showMajorModal && (
+        <div className="lib-modal-overlay" onClick={() => setShowMajorModal(false)}>
+          <div className="lib-modal-card lib-modal-edit" onClick={e => e.stopPropagation()}>
+            <h2 className="lib-modal-title">{editingMajor ? 'Edit Major' : 'Create Major'}</h2>
+            <p className="lib-modal-subtitle">{editingMajor ? 'Update the major name and description.' : 'Create a new major for organizing semesters and subjects.'}</p>
+            <div className="lib-modal-divider" />
+            <div className="lib-form-group">
+              <label className="lib-form-label">Major Name</label>
+              <input className="lib-form-input" type="text" placeholder="e.g. Software Engineering" value={majorForm.name}
+                onChange={e => setMajorForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="lib-form-group">
+              <label className="lib-form-label">Description (Optional)</label>
+              <input className="lib-form-input" type="text" placeholder="Brief description" value={majorForm.description}
+                onChange={e => setMajorForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="lib-modal-divider" />
+            <div className="lib-modal-footer">
+              <button className="lib-modal-cancel-btn" type="button" onClick={() => setShowMajorModal(false)}>Cancel</button>
+              <button className="lib-modal-save-btn" type="button" onClick={editingMajor ? handleUpdateMajor : handleCreateMajor} disabled={isSaving || !majorForm.name.trim()}>
+                {isSaving ? 'Saving...' : (editingMajor ? 'Save Changes' : 'Create Major')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteMajor && (
+        <div className="lib-modal-overlay" onClick={() => setDeleteMajor(null)}>
+          <div className="lib-modal-card lib-modal-delete" onClick={e => e.stopPropagation()}>
+            <div className="lib-delete-icon-wrap">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" fill="#fee2e2" stroke="#ef4444" strokeWidth="2" strokeLinejoin="round"/>
+                <line x1="12" y1="9" x2="12" y2="13" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="12" cy="17" r="1" fill="#ef4444"/>
+              </svg>
+            </div>
+            <div className="lib-delete-content">
+              <h2 className="lib-delete-title">Delete Major?</h2>
+              <p className="lib-delete-body">
+                Are you sure you want to delete <strong>{deleteMajor.name}</strong>?
+                This will permanently remove all semesters, courses, and documents under it.
+              </p>
+            </div>
+            <div className="lib-modal-divider" />
+            <div className="lib-modal-footer">
+              <button className="lib-modal-cancel-btn" type="button" onClick={() => setDeleteMajor(null)}>Keep Major</button>
+              <button className="lib-modal-delete-btn" type="button" onClick={handleDeleteMajor} disabled={isSaving}>
+                {isSaving ? 'Deleting...' : 'Delete Major'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {createModal && (
         <div className="lib-modal-overlay" onClick={() => setCreateModal(false)}>
           <div className="lib-modal-card lib-modal-edit" onClick={e => e.stopPropagation()}>
@@ -1199,6 +1347,8 @@ function LibraryManagementPage() {
           </div>
         </div>
       )}
+        </div>{/* end inner lib-page */}
+      </div>{/* end main content */}
     </div>
   );
 }
