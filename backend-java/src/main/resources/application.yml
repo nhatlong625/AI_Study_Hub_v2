@@ -79,8 +79,8 @@ cloudflare:
     account-id: ${CLOUDFLARE_R2_ACCOUNT_ID:}
     access-key-id: ${CLOUDFLARE_R2_ACCESS_KEY_ID:}
     secret-access-key: ${CLOUDFLARE_R2_SECRET_ACCESS_KEY:}
+    # Bucket phải để private: file chỉ được phát qua presigned URL (hết hạn 1h).
     bucket: ${CLOUDFLARE_R2_BUCKET:documents}
-    public-url: ${CLOUDFLARE_R2_PUBLIC_URL:}
 
 # â”€â”€ App settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document-conversion:

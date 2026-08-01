@@ -35,9 +35,6 @@ public class CloudflareR2StorageService {
     @Value("${cloudflare.r2.bucket:}")
     private String bucketName;
 
-    @Value("${cloudflare.r2.public-url:}")
-    private String publicUrl;
-
     private S3Client s3Client;
     private S3Presigner s3Presigner;
 
@@ -120,12 +117,14 @@ public class CloudflareR2StorageService {
         return new StorageUsage(usedBytes, objectCount);
     }
 
+    /**
+     * Luôn trả URL đã ký, hết hạn sau 1 giờ.
+     *
+     * Trước đây nếu cấu hình cloudflare.r2.public-url thì hàm này trả URL public vĩnh viễn —
+     * ai có link là tải được, bỏ qua toàn bộ kiểm tra quyền ở DocumentService, tức là document
+     * PRIVATE cũng bị lộ. Bucket R2 phải để private và chỉ truy cập qua presigned URL.
+     */
     public String getDownloadUrl(String key) {
-        if (publicUrl != null && !publicUrl.isBlank()) {
-            String base = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
-            return base + "/" + key;
-        }
-
         if (!isConfigured()) {
             throw new IllegalStateException("Cloudflare R2 is not properly configured.");
         }
