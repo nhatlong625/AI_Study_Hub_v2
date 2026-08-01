@@ -578,7 +578,12 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.AI_PROVIDER_CONFIG WHERE provider = N'GEMINI')
     INSERT INTO dbo.AI_PROVIDER_CONFIG (provider, model_name, enabled, priority)
-    VALUES (N'GEMINI', N'gemini-2.5-flash', 1, 2);
+    VALUES (N'GEMINI', N'gemini-3.5-flash', 1, 2);
+ELSE
+    UPDATE dbo.AI_PROVIDER_CONFIG
+    SET model_name = N'gemini-3.5-flash', updated_at = SYSDATETIME()
+    WHERE provider = N'GEMINI'
+      AND model_name IN (N'gemini-2.5-flash', N'gemini-2.5-pro', N'gemini-2.5-flash-lite', N'gemini-1.5-flash', N'gemini-1.5-pro', N'gemini-2.0-flash');
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.AI_PROVIDER_CONFIG WHERE provider = N'DEEPSEEK')

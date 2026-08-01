@@ -39,7 +39,7 @@ const TYPE_CFG = {
 
 const AI_MODELS = {
   openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'],
-  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+  gemini: ['gemini-3.5-flash', 'gemini-3.1-pro', 'gemini-3.1-flash-lite'],
   deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
 };
 
@@ -591,7 +591,7 @@ function AdminSettingsPage() {
 
   const MODELS = {
     openai:    ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    google:    ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'],
+    google:    ['gemini-3.5-flash', 'gemini-3.1-pro', 'gemini-3.1-flash-lite'],
     anthropic: ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-3-5'],
     mistral:   ['mistral-large', 'mistral-medium', 'mistral-small'],
   };

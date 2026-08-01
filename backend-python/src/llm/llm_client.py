@@ -127,9 +127,9 @@ class LlmService:
 
     def _has_valid_gemini_key(self) -> bool:
         key = (self.gemini_api_key or "").strip()
-        return key.startswith("AIza") or key.startswith("AQ.")
+        return len(key) >= 15
 
-    def generate(self, prompt: str) -> tuple[str, bool]:
+    def _generate(self, prompt: str) -> tuple[str, bool]:
         self._refresh_runtime_config()
         if self.provider == "mock":
             return (
@@ -241,8 +241,9 @@ class LlmService:
         candidates = []
         for model in (
             self.gemini_model_name,
-            "gemini-2.5-flash-lite",
-            "gemini-2.0-flash",
+            "gemini-3.5-flash",
+            "gemini-3.1-pro",
+            "gemini-3.1-flash-lite",
         ):
             if model and model not in candidates:
                 candidates.append(model)

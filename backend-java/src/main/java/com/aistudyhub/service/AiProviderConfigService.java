@@ -72,7 +72,12 @@ public class AiProviderConfigService {
         jdbc.getJdbcTemplate().execute("""
             IF NOT EXISTS (SELECT 1 FROM dbo.AI_PROVIDER_CONFIG WHERE provider = 'GEMINI')
                 INSERT INTO dbo.AI_PROVIDER_CONFIG (provider, model_name, enabled, priority)
-                VALUES ('GEMINI', 'gemini-2.5-flash', 1, 2)
+                VALUES ('GEMINI', 'gemini-3.5-flash', 1, 2)
+            ELSE
+                UPDATE dbo.AI_PROVIDER_CONFIG
+                SET model_name = 'gemini-3.5-flash', updated_at = SYSDATETIME()
+                WHERE provider = 'GEMINI'
+                  AND model_name IN ('gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash')
             """);
         jdbc.getJdbcTemplate().execute("""
             IF NOT EXISTS (SELECT 1 FROM dbo.AI_PROVIDER_CONFIG WHERE provider = 'DEEPSEEK')
