@@ -1,4 +1,4 @@
-USE master;
+﻿USE master;
 GO
 
 /*==============================================================================
@@ -170,17 +170,37 @@ GO
   2. Library, courses, and documents
 ==============================================================================*/
 
+IF OBJECT_ID(N'dbo.MAJOR', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.MAJOR
+    (
+        major_id    INT IDENTITY(1,1) NOT NULL,
+        major_name  NVARCHAR(200) NOT NULL,
+        description NVARCHAR(500) NULL,
+        created_at  DATETIME NOT NULL CONSTRAINT DF_MAJOR_created_at DEFAULT GETDATE(),
+        updated_at  DATETIME NULL,
+        CONSTRAINT PK_MAJOR PRIMARY KEY (major_id),
+        CONSTRAINT UQ_MAJOR_name UNIQUE (major_name)
+    );
+END
+GO
+
 IF OBJECT_ID(N'dbo.SEMESTER', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.SEMESTER
     (
         semester_id   INT IDENTITY(1,1) NOT NULL,
         semester_name NVARCHAR(100) NOT NULL,
+        major_id      INT NULL,
         created_at    DATETIME NOT NULL,
         updated_at    DATETIME NULL,
         CONSTRAINT PK_SEMESTER PRIMARY KEY (semester_id)
     );
 END
+GO
+
+IF COL_LENGTH('dbo.SEMESTER', 'major_id') IS NULL
+    ALTER TABLE dbo.SEMESTER ADD major_id INT NULL;
 GO
 
 IF OBJECT_ID(N'dbo.SUBJECT', N'U') IS NULL
@@ -1261,6 +1281,16 @@ GO
 IF OBJECT_ID(N'dbo.CK_PLAN_VERSION_yearly_discount', N'C') IS NULL
     ALTER TABLE dbo.SUBSCRIPTION_PLAN_VERSION ADD CONSTRAINT CK_PLAN_VERSION_yearly_discount
         CHECK (yearly_discount_percent BETWEEN 0 AND 100);
+GO
+
+/*==============================================================================
+  11. Subject & Quiz Performance Indexing Optimization
+==============================================================================*/
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PRACTICE_TEST_user_created' AND object_id = OBJECT_ID(N'dbo.PRACTICE_TEST'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_PRACTICE_TEST_user_created
+    ON dbo.PRACTICE_TEST (user_id, created_at DESC);
+END
 GO
 
 PRINT N'Migrations applied successfully.';
