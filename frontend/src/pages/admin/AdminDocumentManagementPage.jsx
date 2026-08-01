@@ -52,6 +52,28 @@ function TypeBadge({ type }) {
   );
 }
 
+function AiModerationBadge({ aiModeration }) {
+  if (!aiModeration || aiModeration.score == null) return <span style={{ color: '#9ca3af', fontSize: 11 }}>—</span>;
+  const score = Number(aiModeration.score);
+  let bg, color, label;
+  if (score >= 80) { bg = '#d1fae5'; color = '#047857'; label = 'High Match'; }
+  else if (score >= 50) { bg = '#fef3c7'; color = '#b45309'; label = 'Review Needed'; }
+  else { bg = '#fee2e2'; color = '#dc2626'; label = 'Low Match'; }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 12, background: bg, color, fontSize: 11, fontWeight: 700 }}>
+        <span style={{ fontSize: 13, fontWeight: 800 }}>{Math.round(score)}%</span>
+        {label}
+      </span>
+      {aiModeration.reviewStatus && (
+        <span style={{ fontSize: 10, color: '#6b7280', fontStyle: 'italic' }}>
+          {aiModeration.reviewStatus.replace(/_/g, ' ')}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function ChevronIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -392,6 +414,7 @@ function DocumentManagementPage() {
                   <th>UPLOADED AT</th>
                   <th>SIZE</th>
                   <th>STATUS</th>
+                  <th>AI SCORE</th>
                   <th style={{ textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
@@ -427,6 +450,7 @@ function DocumentManagementPage() {
                       <td className="dm-cell-muted">{doc.uploadedAt}</td>
                       <td className="dm-cell-muted">{doc.size}</td>
                       <td><span className={`dm-status-badge ${s.cls || ''}`}>{s.label || doc.status}</span></td>
+                      <td><AiModerationBadge aiModeration={doc.aiModeration} /></td>
                       <td>
                         <div className="dm-actions">
                           <button className="dm-action-btn" title="Preview" onClick={() => setPreview(doc)}><EyeIcon /></button>
@@ -510,6 +534,23 @@ function DocumentManagementPage() {
                     Download
                   </button>
                 </div>
+
+                {preview.aiModeration && preview.aiModeration.score != null && (
+                  <div style={{ marginTop: 16, padding: '14px 16px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2a7 7 0 017 7c0 3-2 5.5-4 7l-1 2H10l-1-2c-2-1.5-4-4-4-7a7 7 0 017-7z" stroke="#6366f1" strokeWidth="2"/><path d="M10 18h4M11 22h2" stroke="#6366f1" strokeWidth="2" strokeLinecap="round"/></svg>
+                      <strong style={{ fontSize: 13, color: '#1e1b4b' }}>AI Moderation Suggestion</strong>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <AiModerationBadge aiModeration={preview.aiModeration} />
+                    </div>
+                    {preview.aiModeration.reasoning && (
+                      <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
+                        {preview.aiModeration.reasoning}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
