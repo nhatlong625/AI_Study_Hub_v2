@@ -29,4 +29,10 @@ public class AdminDocumentResponse {
     private String visibilityStatus;
     private LocalDateTime uploadedAt;
     private LocalDateTime updatedAt;
+
+    // AI Moderation fields
+    private Double relevanceScore;
+    private String aiReasoning;
+    private String aiRecommendation;
+    private String reviewStatus;
 }
