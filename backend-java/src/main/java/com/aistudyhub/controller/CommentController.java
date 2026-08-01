@@ -38,15 +38,15 @@ public class CommentController {
         return findComments(documentId);
     }
 
-    @GetMapping("/share/{shareId}")
-    public List<Map<String, Object>> getByShare(@PathVariable Integer shareId) {
+    @GetMapping("/share/{shareToken}")
+    public List<Map<String, Object>> getByShare(@PathVariable String shareToken) {
         List<Integer> documentIds = jdbc.queryForList("""
             SELECT document_id
             FROM dbo.DOCUMENT_SHARE
-            WHERE share_id = :shareId
+            WHERE share_token = :shareToken
               AND share_type = 'LINK'
               AND status = 'ACTIVE'
-            """, Map.of("shareId", shareId), Integer.class);
+            """, Map.of("shareToken", shareToken), Integer.class);
         if (documentIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Share link not found or has been revoked.");
         }

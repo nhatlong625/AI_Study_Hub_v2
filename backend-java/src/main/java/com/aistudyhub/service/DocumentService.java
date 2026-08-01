@@ -484,13 +484,21 @@ public class DocumentService {
         // Normalized note.
         return documentShareRepository
                 .findFirstByDocumentIdAndShareTypeAndStatus(documentId, "LINK", "ACTIVE")
-                .map(this::toShareDto)
+                .map(existing -> {
+                    // Row tạo từ trước khi có share_token (hoặc backfill lỗi) thì cấp token ngay.
+                    if (existing.getShareToken() == null || existing.getShareToken().isBlank()) {
+                        existing.setShareToken(newShareToken());
+                        documentShareRepository.save(existing);
+                    }
+                    return toShareDto(existing);
+                })
                 .orElseGet(() -> {
                     DocumentShare share = new DocumentShare();
                     share.setDocumentId(documentId);
                     share.setUserId(userId);
                     share.setShareType("LINK");
                     share.setStatus("ACTIVE");
+                    share.setShareToken(newShareToken());
                     return toShareDto(documentShareRepository.save(share));
                 });
     }
@@ -514,21 +522,30 @@ public class DocumentService {
      *
      *
      */
-    public DocumentResponse getDocumentByShareId(Integer shareId) {
+    public DocumentResponse getDocumentByShareToken(String shareToken) {
+        if (shareToken == null || shareToken.isBlank()) {
+            throw new ResourceNotFoundException("Share link not found or has been revoked.");
+        }
         DocumentShare share = documentShareRepository
-                .findByShareIdAndStatus(shareId, "ACTIVE")
+                .findByShareTokenAndStatus(shareToken.trim(), "ACTIVE")
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Share link not found or has been revoked."));
         return getById(share.getDocumentId());
+    }
+
+    // 128 bit ngẫu nhiên dạng hex — không đoán/duyệt được như share_id tự tăng.
+    private String newShareToken() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     private DocumentShareResponse toShareDto(DocumentShare share) {
         DocumentShareResponse r = new DocumentShareResponse();
         r.setShareId(share.getShareId());
         r.setDocumentId(share.getDocumentId());
+        r.setShareToken(share.getShareToken());
         r.setShareType(share.getShareType());
         r.setStatus(share.getStatus());
-        r.setShareUrl(frontendUrl + "/share/" + share.getShareId());
+        r.setShareUrl(frontendUrl + "/share/" + share.getShareToken());
         return r;
     }
     @Transactional

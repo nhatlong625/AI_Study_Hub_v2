@@ -1,5 +1,5 @@
 // components/layout/ShareLayout.jsx
-// Layout đơn giản không có sidebar — dùng cho trang /share/:shareId.
+// Layout đơn giản không có sidebar — dùng cho trang /share/:shareToken.
 // Không sidebar vì sidebar trỏ vào userId=1 hardcode, sẽ lộ data cá nhân
 // nếu người lạ bấm vào Library/Profile.
 

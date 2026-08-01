@@ -256,6 +256,8 @@ BEGIN
     CREATE TABLE dbo.DOCUMENT_SHARE
     (
         share_id          INT IDENTITY(1,1) NOT NULL,
+        -- Token ngẫu nhiên cho link public /share/{token}; không dùng share_id vì đoán được.
+        share_token       NVARCHAR(64) NULL,
         document_id       INT NOT NULL,
         user_id           INT NOT NULL,
         description       NVARCHAR(500) NULL,

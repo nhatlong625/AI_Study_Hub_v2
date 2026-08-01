@@ -16,6 +16,11 @@ public class DocumentShare {
     @Column(name = "document_id")
     private Integer documentId;
 
+    // Token ngẫu nhiên dùng cho link public /share/{token}.
+    // Không dùng share_id vì nó tự tăng — ai cũng đoán được document của người khác.
+    @Column(name = "share_token", length = 64)
+    private String shareToken;
+
     // user_id = người tạo link share (chủ document)
     @Column(name = "user_id")
     private Integer userId;

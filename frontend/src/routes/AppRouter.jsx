@@ -199,7 +199,7 @@ function AppRouter() {
     {
       path: "/share",
       element: <ShareLayout />,
-      children: [{ path: ":shareId", element: <SharedDocumentViewPage /> }],
+      children: [{ path: ":shareToken", element: <SharedDocumentViewPage /> }],
     },
 
     { path: "/payment/result", element: <PaymentResultPage /> },

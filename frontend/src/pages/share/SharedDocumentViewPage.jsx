@@ -1,6 +1,6 @@
 // pages/share/SharedDocumentViewPage.jsx
 // Trang xem document qua link share — public, không cần đăng nhập.
-// Resolve shareId → documentId rồi navigate vào StudentDocumentViewPage
+// Resolve shareToken → documentId rồi navigate vào StudentDocumentViewPage
 // (vốn đã read-only: không có nút Delete/Rename/Visibility).
 
 import { useParams, useNavigate } from "react-router-dom";
@@ -9,7 +9,7 @@ import { documentApi } from "../../services/libraryApi";
 import StudentDocumentViewPage from "../student/StudentDocumentViewPage";
 
 export default function SharedDocumentViewPage() {
-  const { shareId } = useParams();
+  const { shareToken } = useParams();
   const navigate = useNavigate();
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,7 +17,7 @@ export default function SharedDocumentViewPage() {
 
   useEffect(() => {
     documentApi
-      .getByShareId(shareId)
+      .getByShareToken(shareToken)
       .then((data) => setDoc(data))
       .catch((err) => {
         if (err.status === 404) {
@@ -27,7 +27,7 @@ export default function SharedDocumentViewPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [shareId]);
+  }, [shareToken]);
 
   if (loading) {
     return (
@@ -68,5 +68,5 @@ export default function SharedDocumentViewPage() {
   // không cần fetch lại bằng documentId.
   // navigate state trick: render StudentDocumentViewPage trực tiếp với doc prop
   // bằng cách dùng key để force mount đúng documentId.
-  return <StudentDocumentViewPage _sharedDoc={doc} _shareId={shareId} />;
+  return <StudentDocumentViewPage _sharedDoc={doc} _shareToken={shareToken} />;
 }
