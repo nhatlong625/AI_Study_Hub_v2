@@ -414,5 +414,69 @@ class LlmService:
             return "DeepSeek"
         return "LLM"
 
+    def moderate_document(
+        self,
+        title: str,
+        summary_text: str | None,
+        subject_name: str,
+        subject_code: str,
+        subject_description: str | None,
+    ) -> tuple[float, str, str, bool]:
+        """Evaluate document relevance to its subject via LLM.
+        Returns (relevance_score 0-100, ai_reasoning, recommendation, used_mock_ai).
+        """
+        self._refresh_runtime_config()
+
+        doc_info = f"Title: {title}"
+        if summary_text:
+            doc_info += f"\nSummary: {summary_text[:2000]}"
+
+        subject_info = f"Subject: {subject_name} ({subject_code})"
+        if subject_description:
+            subject_info += f"\nDescription: {subject_description}"
+
+        prompt = (
+            "You are a document moderation assistant for a university study hub.\n"
+            "Evaluate how relevant the uploaded document is to its assigned subject.\n\n"
+            f"{subject_info}\n\n"
+            f"Uploaded Document:\n{doc_info}\n\n"
+            "Instructions:\n"
+            "1. Compare the document title and summary content against the subject name and description.\n"
+            "2. Score relevance from 0 to 100 (100 = perfectly relevant).\n"
+            "3. Provide a brief reasoning in Vietnamese explaining your assessment.\n"
+            "4. Based on score: >=80 recommend AUTO_APPROVED, 50-79 recommend PENDING_HUMAN, <50 recommend REJECTED.\n\n"
+            "Reply in this EXACT JSON format only, no other text:\n"
+            '{"relevance_score": <number>, "ai_reasoning": "<text>", "recommendation": "<AUTO_APPROVED|PENDING_HUMAN|REJECTED>"}'
+        )
+
+        if self.provider == "mock":
+            return 75.0, "Demo mode - cannot evaluate document relevance.", "PENDING_HUMAN", True
+
+        try:
+            result = self._generate_with_failover(prompt)
+            import json as _json
+            text = result.text.strip()
+            json_start = text.find("{")
+            json_end = text.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                parsed = _json.loads(text[json_start:json_end])
+                score = float(parsed.get("relevance_score", 50))
+                score = max(0, min(100, score))
+                reasoning = str(parsed.get("ai_reasoning", "No reasoning provided."))
+                recommendation = str(parsed.get("recommendation", "PENDING_HUMAN"))
+                if recommendation not in ("AUTO_APPROVED", "PENDING_HUMAN", "REJECTED"):
+                    if score >= 80:
+                        recommendation = "AUTO_APPROVED"
+                    elif score >= 50:
+                        recommendation = "PENDING_HUMAN"
+                    else:
+                        recommendation = "REJECTED"
+                return score, reasoning, recommendation, False
+            else:
+                return 50.0, f"AI returned unparseable response: {text[:300]}", "PENDING_HUMAN", False
+        except Exception as exc:
+            return 50.0, f"AI moderation error: {str(exc)[:300]}", "PENDING_HUMAN", True
+
 
 GeminiService = LlmService
+

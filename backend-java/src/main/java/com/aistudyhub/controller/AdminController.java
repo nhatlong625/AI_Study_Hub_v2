@@ -858,11 +858,19 @@ public class AdminController {
                        WHEN 'PUBLIC' THEN 'Approved'
                        ELSE 'Rejected'
                    END AS status,
-                   d.document_name AS description, '' AS rejectReason
+                   d.document_name AS description, '' AS rejectReason,
+                   prl.relevance_score AS aiScore,
+                   prl.ai_reasoning AS aiReasoning,
+                   prl.review_status AS aiReviewStatus
             FROM dbo.DOCUMENT d
             JOIN dbo.SUBJECT sub ON sub.subject_id = d.subject_id
             JOIN dbo.SEMESTER sem ON sem.semester_id = sub.semester_id
             JOIN dbo.[USER] u ON u.user_id = d.user_id
+            LEFT JOIN (
+                SELECT document_id, relevance_score, ai_reasoning, review_status,
+                       ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY created_at DESC) AS rn
+                FROM dbo.PUBLIC_REVIEW_LOG
+            ) prl ON prl.document_id = d.document_id AND prl.rn = 1
             """ + suffix;
     }
 
@@ -1038,6 +1046,14 @@ public class AdminController {
         uploader.put("color", row.get("uploader_color"));
         uploader.put("text", row.get("uploader_text"));
         shaped.put("uploader", uploader);
+
+        // AI Moderation data
+        Map<String, Object> aiModeration = new LinkedHashMap<>();
+        aiModeration.put("score", row.get("aiScore"));
+        aiModeration.put("reasoning", row.get("aiReasoning"));
+        aiModeration.put("reviewStatus", row.get("aiReviewStatus"));
+        shaped.put("aiModeration", aiModeration);
+
         return shaped;
     }
 
