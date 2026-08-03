@@ -1,4 +1,4 @@
-﻿USE master;
+USE master;
 GO
 
 /*==============================================================================
@@ -1290,6 +1290,16 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PRACTICE_TEST_user_cr
 BEGIN
     CREATE NONCLUSTERED INDEX IX_PRACTICE_TEST_user_created
     ON dbo.PRACTICE_TEST (user_id, created_at DESC);
+END
+GO
+
+/*==============================================================================
+  12. User Profile & Study Activity Index Optimization
+==============================================================================*/
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_USER_STUDY_ACTIVITY_user_date' AND object_id = OBJECT_ID(N'dbo.USER_STUDY_ACTIVITY'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_USER_STUDY_ACTIVITY_user_date
+    ON dbo.USER_STUDY_ACTIVITY (user_id, activity_date DESC);
 END
 GO
 
