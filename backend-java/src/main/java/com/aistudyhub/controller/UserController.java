@@ -39,6 +39,9 @@ public class UserController {
     @Value("${supabase.key}")
     private String supabaseKey;
 
+    /**
+     * Uploads user avatar image to storage and updates user profile URL.
+     */
     // ── POST /api/users/{userId}/avatar ───────────────────────────────────────
     @PostMapping(value = "/{userId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadAvatar(
