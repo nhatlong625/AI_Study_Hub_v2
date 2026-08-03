@@ -213,6 +213,9 @@ public class UserController {
         return ResponseEntity.ok(stats);
     }
 
+    /**
+     * Submits user feedback or bug report to the administrative review queue.
+     */
     // ── POST /api/users/report ────────────────────────────────────────────────
     @PostMapping("/report")
     public ResponseEntity<MessageResponse> submitReport(
