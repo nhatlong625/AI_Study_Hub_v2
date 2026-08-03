@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { userService } from "../../services/userService";
 import { formatStorageMb } from "../../utils/formatStorage";
 import PageHeader from "../../components/common/PageHeader";
+import MajorSelector from "../../components/student/MajorSelector";
 
 function getCurrentUser() {
   try {
@@ -148,6 +149,7 @@ const TABS = [
 // ── Edit Profile Modal ───────────────────────────────────────────────────────
 function EditProfileModal({ profile, userId, onClose, onSaved }) {
   const [fullName, setFullName] = useState(profile?.fullName || "");
+  const [selectedMajorId, setSelectedMajorId] = useState(profile?.majorId || null);
   const [avatarPreview, setAvatarPreview] = useState(profile?.avatarUrl || null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -182,15 +184,22 @@ function EditProfileModal({ profile, userId, onClose, onSaved }) {
         newAvatarUrl = avatarRes.avatarUrl || null;
       }
       const updated = await userService.updateProfile(userId, fullName.trim());
-      onSaved(newAvatarUrl ? { ...updated, avatarUrl: newAvatarUrl } : updated);
+      const majorRes = await userService.updateMyMajor(selectedMajorId);
+      const finalProfile = {
+        ...updated,
+        majorId: selectedMajorId,
+        majorName: majorRes.majorName,
+        ...(newAvatarUrl ? { avatarUrl: newAvatarUrl } : {})
+      };
+      onSaved(finalProfile);
       try {
         const stored = JSON.parse(localStorage.getItem("user") || "{}");
-        const newData = { ...stored, fullName: fullName.trim() };
+        const newData = { ...stored, fullName: fullName.trim(), majorId: selectedMajorId };
         if (newAvatarUrl) newData.avatarUrl = newAvatarUrl;
         localStorage.setItem("user", JSON.stringify(newData));
       } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent("user-profile-updated", {
-        detail: { fullName: fullName.trim(), ...(newAvatarUrl ? { avatarUrl: newAvatarUrl } : {}) }
+        detail: { fullName: fullName.trim(), majorId: selectedMajorId, ...(newAvatarUrl ? { avatarUrl: newAvatarUrl } : {}) }
       }));
       onClose();
     } catch (err) {
@@ -236,6 +245,14 @@ function EditProfileModal({ profile, userId, onClose, onSaved }) {
             <input autoFocus value={fullName} onChange={(e) => setFullName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSave()}
               placeholder="Enter your full name"
               className="w-full px-4 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-xl outline-none focus:border-indigo-400 transition-colors" />
+          </Field>
+          <Field label="Academic Major">
+            <div className="pt-1">
+              <MajorSelector
+                selectedMajorId={selectedMajorId}
+                onSelectMajor={(mId) => setSelectedMajorId(mId)}
+              />
+            </div>
           </Field>
           {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
         </div>
@@ -388,6 +405,18 @@ function AccountTab({ profile, userId, onProfileUpdated }) {
           </Field>
           <Field label="Email">
             <input readOnly value={displayEmail} className="w-full px-4 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
+          </Field>
+          <Field label="Academic Major">
+            <div className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl">
+              <span className="font-semibold">{profile?.majorName || "All Majors / Not Selected"}</span>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(true)}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                Change Major
+              </button>
+            </div>
           </Field>
         </div>
       </SectionCard>

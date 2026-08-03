@@ -1,4 +1,4 @@
-﻿import { useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import { useState, useEffect, useRef } from "react";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
@@ -294,6 +294,8 @@ function CreateCourseModal({
 // Main page.
 export default function StudentLibraryPage() {
   const navigate = useNavigate();
+  const outletCtx = useOutletContext() || {};
+  const selectedMajorId = outletCtx.selectedMajorId;
 
   // allSemesters: system semesters and subjects used by Create Course.
   const [allSemesters, setAllSemesters] = useState([]);

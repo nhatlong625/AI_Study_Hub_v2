@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import { useState, useMemo, useEffect } from "react";
 import { semesterApi } from "../../services/libraryApi";
@@ -37,6 +37,8 @@ const UserIcon = () => (
 
 export default function StudentHomePage() {
   const navigate = useNavigate();
+  const outletCtx = useOutletContext() || {};
+  const selectedMajorId = outletCtx.selectedMajorId;
   const [selectedSemester, setSelectedSemester] = useState("All Semesters");
 
   // semesters: [{ semesterName, semesterId, subjects: [{ subjectId, subjectName, subjectCode }] }]
@@ -46,7 +48,8 @@ export default function StudentHomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    semesterApi.getAll().then((data) => {
+    setLoading(true);
+    semesterApi.getAll(selectedMajorId).then((data) => {
       const sortedSemesters = [...data].sort(
         (a, b) => getSemesterNumber(a) - getSemesterNumber(b),
       );
@@ -121,7 +124,7 @@ export default function StudentHomePage() {
         });
       });
     });
-  }, []);
+  }, [selectedMajorId]);
 
   const filtered = useMemo(() => {
     const visibleSemesters = selectedSemester === "All Semesters"
