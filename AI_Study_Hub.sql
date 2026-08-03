@@ -1,4 +1,4 @@
-﻿USE master;
+USE master;
 GO
 
 /*==============================================================================
@@ -107,6 +107,7 @@ BEGIN
         created_at    DATETIME NOT NULL CONSTRAINT DF_USER_created_at DEFAULT GETDATE(),
         updated_at    DATETIME NULL,
         last_login    DATETIME NULL,
+        major_id      INT NULL,
         CONSTRAINT PK_USER PRIMARY KEY (user_id),
         CONSTRAINT UQ_USER_email UNIQUE (email)
     );
@@ -726,6 +727,14 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_USER_ROLE')
     ALTER TABLE dbo.[USER] ADD CONSTRAINT FK_USER_ROLE FOREIGN KEY (role_id) REFERENCES dbo.ROLE(role_id);
+GO
+
+IF COL_LENGTH('dbo.[USER]', 'major_id') IS NULL
+    ALTER TABLE dbo.[USER] ADD major_id INT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_USER_MAJOR')
+    ALTER TABLE dbo.[USER] ADD CONSTRAINT FK_USER_MAJOR FOREIGN KEY (major_id) REFERENCES dbo.MAJOR(major_id);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_USER_SUBSCRIPTION_USER')
