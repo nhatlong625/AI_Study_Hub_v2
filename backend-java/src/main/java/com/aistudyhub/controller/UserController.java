@@ -348,6 +348,9 @@ public class UserController {
         return ResponseEntity.ok(payments);
     }
 
+    /**
+     * Cancels the active user subscription.
+     */
     // ── DELETE /api/users/{userId}/subscription ───────────────────────────────
     @DeleteMapping("/{userId}/subscription")
     public ResponseEntity<MessageResponse> cancelSubscription(@PathVariable Integer userId) {
