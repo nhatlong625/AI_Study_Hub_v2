@@ -16,6 +16,9 @@ public class Semester {
     @Column(name = "semester_name")
     private String semesterName;
 
+    @Column(name = "major_id")
+    private Integer majorId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

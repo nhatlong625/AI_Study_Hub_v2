@@ -75,4 +75,58 @@ public class SemesterService {
         this.lastCacheTime = System.currentTimeMillis();
         return response;
     }
+
+    public List<SemesterResponse> getSemestersByMajor(Integer majorId) {
+        if (majorId == null || majorId <= 0) {
+            return getAllSemesters();
+        }
+
+        Map<Integer, DocumentRepository.PublicSubjectStats> publicStatsBySubject =
+                documentRepository.findPublicSubjectStats().stream()
+                        .collect(Collectors.toMap(
+                                DocumentRepository.PublicSubjectStats::getSubjectId,
+                                stats -> stats,
+                                (existing, replacement) -> existing));
+
+        Map<Integer, List<Subject>> subjectsBySemester = subjectRepository.findAll()
+                .stream()
+                .collect(Collectors.groupingBy(Subject::getSemesterId));
+
+        List<Semester> filteredSemesters = semesterRepository.findAll().stream()
+                .filter(sem -> sem.getMajorId() == null || sem.getMajorId().equals(majorId))
+                .collect(Collectors.toList());
+
+        return filteredSemesters.stream().map(sem -> {
+            SemesterResponse res = new SemesterResponse();
+            res.setSemesterId(sem.getSemesterId());
+            res.setSemesterName(sem.getSemesterName());
+
+            List<Subject> semesterSubjects = subjectsBySemester.getOrDefault(sem.getSemesterId(), List.of());
+
+            List<SubjectResponse> subjects = semesterSubjects.stream().map(sub -> {
+                SubjectResponse sr = new SubjectResponse();
+                sr.setSubjectId(sub.getSubjectId());
+                sr.setSubjectCode(sub.getSubjectCode() != null && !sub.getSubjectCode().isBlank()
+                        ? sub.getSubjectCode()
+                        : "SUB-" + sub.getSubjectId());
+                sr.setSubjectName(sub.getSubjectName());
+                sr.setDescription(sub.getDescription());
+
+                DocumentRepository.PublicSubjectStats stats = publicStatsBySubject.get(sub.getSubjectId());
+                if (stats != null) {
+                    sr.setDocumentCount(stats.getDocumentCount() == null ? 0 : stats.getDocumentCount().intValue());
+                    sr.setRecentDocId(stats.getRecentDocId());
+                    sr.setRecentDocTitle(stats.getRecentDocTitle());
+                    sr.setRecentDocName(stats.getRecentDocName());
+                    sr.setRecentDocType(stats.getRecentDocType());
+                    sr.setRecentDocUrl(null);
+                    sr.setRecentDocUploadedAt(stats.getRecentDocUploadedAt() == null ? null : stats.getRecentDocUploadedAt().toString());
+                }
+                return sr;
+            }).collect(Collectors.toList());
+
+            res.setSubjects(subjects);
+            return res;
+        }).collect(Collectors.toList());
+    }
 }

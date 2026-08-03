@@ -9,4 +9,6 @@ public class AuthResponse {
     private String role;
     private String plan;
     private int streakDays;
+    private Integer majorId;
+    private String majorName;
 }

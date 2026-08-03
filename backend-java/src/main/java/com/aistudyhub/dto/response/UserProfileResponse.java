@@ -16,4 +16,6 @@ public class UserProfileResponse {
     private String plan;
     private String avatarUrl;
     private String joinedAt;   // "January 2024"
+    private Integer majorId;
+    private String majorName;
 }

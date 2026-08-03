@@ -87,15 +87,22 @@ public class UserController {
         return ResponseEntity.ok(Map.of("plan", plan));
     }
 
+    // ── GET /api/users/me ─────────────────────────────────────────────────────
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponse> getMyProfile() {
+        return getProfile(currentUser.id());
+    }
+
     // ── GET /api/users/{userId} ───────────────────────────────────────────────
     @GetMapping("/{userId}")
     public ResponseEntity<UserProfileResponse> getProfile(@PathVariable Integer userId) {
-        userId = currentUser.id();
+        Integer uId = currentUser.id();
         Map<String, Object> row = jdbc.queryForMap("""
-                SELECT u.user_id, u.full_name, u.email, u.avatar_url, u.created_at
+                SELECT u.user_id, u.full_name, u.email, u.avatar_url, u.created_at, u.major_id, m.major_name
                 FROM dbo.[USER] u
+                LEFT JOIN dbo.MAJOR m ON u.major_id = m.major_id
                 WHERE u.user_id = ?
-                """, userId);
+                """, uId);
 
         String joinedAt = "";
         if (row.get("created_at") != null) {
@@ -105,15 +112,42 @@ public class UserController {
         }
 
         UserProfileResponse profile = UserProfileResponse.builder()
-                .userId(userId)
+                .userId(uId)
                 .fullName((String) row.get("full_name"))
                 .email((String) row.get("email"))
                 .avatarUrl((String) row.get("avatar_url"))
-                .plan(resolvePlan(userId))
+                .plan(resolvePlan(uId))
                 .joinedAt(joinedAt)
+                .majorId((Integer) row.get("major_id"))
+                .majorName((String) row.get("major_name"))
                 .build();
 
         return ResponseEntity.ok(profile);
+    }
+
+    // ── PUT /api/users/me/major ───────────────────────────────────────────────
+    @PutMapping("/me/major")
+    public ResponseEntity<Map<String, Object>> updateMyMajor(@RequestBody Map<String, Integer> payload) {
+        Integer uId = currentUser.id();
+        Integer majorId = payload.get("majorId");
+        if (majorId != null && majorId > 0) {
+            jdbc.update("UPDATE dbo.[USER] SET major_id = ?, updated_at = GETDATE() WHERE user_id = ?", majorId, uId);
+        } else {
+            jdbc.update("UPDATE dbo.[USER] SET major_id = NULL, updated_at = GETDATE() WHERE user_id = ?", uId);
+            majorId = null;
+        }
+
+        String majorName = null;
+        if (majorId != null) {
+            List<String> names = jdbc.query("SELECT major_name FROM dbo.MAJOR WHERE major_id = ?", (rs, rowNum) -> rs.getString("major_name"), majorId);
+            if (!names.isEmpty()) majorName = names.get(0);
+        }
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("message", "Major updated successfully");
+        res.put("majorId", majorId);
+        res.put("majorName", majorName);
+        return ResponseEntity.ok(res);
     }
 
     // ── GET /api/users/{userId}/stats ─────────────────────────────────────────
