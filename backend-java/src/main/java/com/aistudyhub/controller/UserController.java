@@ -82,6 +82,9 @@ public class UserController {
         }
     }
 
+    /**
+     * Retrieves the active plan name for the current user.
+     */
     // ── GET /api/users/{userId}/plan ──────────────────────────────────────────
     @GetMapping("/{userId}/plan")
     public ResponseEntity<Map<String, String>> getCurrentPlan(@PathVariable Integer userId) {
