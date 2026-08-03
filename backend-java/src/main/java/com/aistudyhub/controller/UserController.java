@@ -331,6 +331,9 @@ public class UserController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * Fetches billing and payment transaction history for current user.
+     */
     // ── GET /api/users/{userId}/billing-history ───────────────────────────────
     @GetMapping("/{userId}/billing-history")
     public ResponseEntity<List<Map<String, Object>>> getBillingHistory(@PathVariable Integer userId) {
