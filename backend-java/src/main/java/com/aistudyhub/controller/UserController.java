@@ -369,6 +369,9 @@ public class UserController {
         return ResponseEntity.ok(new MessageResponse("Subscription cancelled successfully"));
     }
 
+    /**
+     * Lists active authentication login sessions for the current user.
+     */
     // ── GET /api/users/{userId}/sessions ──────────────────────────────────────
     @GetMapping("/{userId}/sessions")
     public ResponseEntity<List<Map<String, Object>>> getSessions(@PathVariable Integer userId) {
