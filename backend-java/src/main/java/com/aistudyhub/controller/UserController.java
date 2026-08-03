@@ -250,6 +250,9 @@ public class UserController {
         return ResponseEntity.ok(new MessageResponse("Report submitted successfully"));
     }
 
+    /**
+     * Toggles automatic renewal state for user subscription.
+     */
     // ── PUT /api/users/{userId}/subscription/auto-renewal ─────────────────────
     @PutMapping("/{userId}/subscription/auto-renewal")
     public ResponseEntity<MessageResponse> updateAutoRenewal(
