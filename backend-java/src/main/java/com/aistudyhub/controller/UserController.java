@@ -93,6 +93,9 @@ public class UserController {
         return ResponseEntity.ok(Map.of("plan", plan));
     }
 
+    /**
+     * Fetches user profile information including full name, email, avatar URL, and plan details.
+     */
     // ── GET /api/users/{userId} ───────────────────────────────────────────────
     @GetMapping("/{userId}")
     public ResponseEntity<UserProfileResponse> getProfile(@PathVariable Integer userId) {
