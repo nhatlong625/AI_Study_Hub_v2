@@ -25,12 +25,18 @@ export const libraryApi = {
     if (!res.ok) throw new Error(`Cannot load library (HTTP ${res.status})`);
     return res.json();
   },
+  getMajors: async () => {
+    const res = await fetch(`${BASE_URL}/majors`, { headers: getHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+  },
 };
 
 export const semesterApi = {
-  // Load all semesters and subjects in the system.
-  getAll: async () => {
-    const res = await fetch(`${BASE_URL}/semesters`, { headers: getHeaders() });
+  // Load all semesters and subjects in the system (optionally filtered by majorId).
+  getAll: async (majorId = null) => {
+    const url = (majorId && majorId > 0) ? `${BASE_URL}/semesters?majorId=${majorId}` : `${BASE_URL}/semesters`;
+    const res = await fetch(url, { headers: getHeaders() });
     return res.json();
   },
 };

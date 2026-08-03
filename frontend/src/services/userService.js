@@ -84,9 +84,10 @@ export const userService = {
 
   // Settings
   getSettings: (userId) => request(`/users/${userId}/settings`),
-  updateSettings: (userId, settings) =>
-    request(`/users/${userId}/settings`, {
+  // Major
+  updateMyMajor: (majorId) =>
+    request("/users/me/major", {
       method: "PUT",
-      body: JSON.stringify(settings),
+      body: JSON.stringify({ majorId }),
     }),
 };
