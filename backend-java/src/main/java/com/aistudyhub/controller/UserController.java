@@ -276,6 +276,9 @@ public class UserController {
         return ResponseEntity.ok(new MessageResponse(autoRenewal ? "Auto-renewal enabled" : "Auto-renewal disabled"));
     }
 
+    /**
+     * Retrieves current active subscription details, version limits, and renewal policy.
+     */
     // ── GET /api/users/{userId}/subscription ──────────────────────────────────
     @GetMapping("/{userId}/subscription")
     public ResponseEntity<Map<String, Object>> getSubscription(@PathVariable Integer userId) {
