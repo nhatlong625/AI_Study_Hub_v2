@@ -125,6 +125,9 @@ public class UserController {
         return ResponseEntity.ok(profile);
     }
 
+    /**
+     * Calculates user study stats including current streak, study duration, course count, and total XP points.
+     */
     // ── GET /api/users/{userId}/stats ─────────────────────────────────────────
     @GetMapping("/{userId}/stats")
     public ResponseEntity<UserStatsResponse> getStats(@PathVariable Integer userId) {
