@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import DocumentActionMenu from "../../components/common/DocumentActionMenu";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import EditDocumentModal from "../../components/common/EditDocumentModal";
-import { documentApi, semesterApi } from "../../services/libraryApi";
+import { documentApi, libraryApi, semesterApi } from "../../services/libraryApi";
 import ShareDocumentModal from "../../components/common/ShareDocumentModal";
 import UpgradePricingModal from "../../components/student/UpgradePricingModal";
 import { useHistoryContext } from "../../hooks/useHistory";
@@ -63,6 +63,21 @@ async function fetchDocumentBlob(documentId, action) {
   return response.blob();
 }
 
+// Tài liệu trong thùng rác dùng endpoint preview riêng: bản ghi đã bị đánh dấu xoá
+// nên /documents/{id}/preview thông thường không trả về nữa.
+async function fetchTrashDocumentBlob(documentId) {
+  const token = localStorage.getItem("token");
+  const response = await fetch(
+    `${API_BASE}/documents/trash/${documentId}/preview`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.message || "Could not preview this trashed document.");
+  }
+  return response.blob();
+}
+
 function canEmbedPreview(type) {
   return ["pdf", "png", "jpg", "jpeg", "gif", "txt", "md", "csv", "mp4"].includes(
     String(type || "").toLowerCase(),
@@ -77,6 +92,220 @@ function getDocumentSizeLabel(doc) {
   return doc?.documentSize
     ? (doc.documentSize / 1024 / 1024).toFixed(1) + " MB"
     : "-";
+}
+
+function TrashModal({ onClose, onChanged }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [error, setError] = useState("");
+  const [purgeTarget, setPurgeTarget] = useState(null);
+
+  useEffect(() => {
+    documentApi
+      .getTrash()
+      .then((data) => setItems(Array.isArray(data) ? data : []))
+      .catch((err) => setError(err.message || "Could not load Trash."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!preview) {
+      setPreviewUrl("");
+      return undefined;
+    }
+    let url = "";
+    let cancelled = false;
+    setError("");
+    // Xoá URL cũ trước khi tải cái mới: cleanup đã revoke nó, giữ lại thì iframe trỏ
+    // vào blob không còn tồn tại và hiện khung trắng thay vì "Loading preview...".
+    setPreviewUrl("");
+    fetchTrashDocumentBlob(preview.documentId)
+      .then((blob) => {
+        if (!cancelled) {
+          url = URL.createObjectURL(blob);
+          setPreviewUrl(url);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      });
+    // Thu hồi object URL khi đổi tài liệu, nếu không mỗi lần xem là rò một blob.
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [preview]);
+
+  async function restore(item) {
+    setBusyId(item.documentId);
+    setError("");
+    try {
+      await documentApi.restoreFromTrash(item.documentId);
+      const next = items.filter((entry) => entry.documentId !== item.documentId);
+      setItems(next);
+      setPreview(null);
+      onChanged?.(next.length, item);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function purge(item) {
+    setBusyId(item.documentId);
+    setError("");
+    try {
+      await documentApi.purgeFromTrash(item.documentId);
+      const next = items.filter((entry) => entry.documentId !== item.documentId);
+      setItems(next);
+      setPreview(null);
+      onChanged?.(next.length);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+      setPurgeTarget(null);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+      onMouseDown={onClose}
+    >
+      <div
+        className="w-full max-w-5xl max-h-[88vh] overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div>
+            <h2 className="text-xl font-black text-gray-900">Trash</h2>
+            <p className="text-sm text-gray-500">
+              Documents are permanently deleted after 30 days.
+            </p>
+          </div>
+          <button
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        {error && (
+          <div className="mx-6 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            {error}
+          </div>
+        )}
+
+        <div className="grid min-h-[420px] grid-cols-1 md:grid-cols-[1fr_1.1fr]">
+          <div className="max-h-[68vh] overflow-y-auto border-r border-gray-100 p-4">
+            {loading ? (
+              <p className="py-12 text-center text-sm text-gray-400">
+                Loading Trash...
+              </p>
+            ) : items.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="mb-3 text-4xl">🗑️</div>
+                <p className="font-bold text-gray-700">Trash is empty</p>
+              </div>
+            ) : (
+              items.map((item) => (
+                <div
+                  key={item.documentId}
+                  className={
+                    "mb-3 rounded-xl border p-4 " +
+                    (preview?.documentId === item.documentId
+                      ? "border-indigo-300 bg-indigo-50"
+                      : "border-gray-200")
+                  }
+                >
+                  <button
+                    className="block w-full text-left"
+                    onClick={() => setPreview(item)}
+                  >
+                    <div className="truncate text-sm font-bold text-gray-900">
+                      {item.title || item.documentName}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {item.subjectName || "Unknown course"} ·{" "}
+                      {getDocumentType(item)}
+                    </div>
+                    <div className="mt-2 text-xs font-semibold text-amber-600">
+                      Permanently deleted in {item.remainingDays} day
+                      {item.remainingDays === 1 ? "" : "s"}
+                    </div>
+                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      disabled={busyId === item.documentId}
+                      onClick={() => restore(item)}
+                      className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      disabled={busyId === item.documentId}
+                      onClick={() => setPurgeTarget(item)}
+                      className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Delete permanently
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex min-h-[420px] flex-col bg-gray-50 p-4">
+            {!preview ? (
+              <div className="m-auto text-center text-sm text-gray-400">
+                Select a document to preview it.
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
+                  This document is in Trash and will be permanently deleted in{" "}
+                  {preview.remainingDays} day
+                  {preview.remainingDays === 1 ? "" : "s"}.
+                </div>
+                {previewUrl && canEmbedPreview(preview.documentType) ? (
+                  <iframe
+                    className="min-h-0 flex-1 rounded-xl border border-gray-200 bg-white"
+                    title={`Preview ${preview.title}`}
+                    src={previewUrl}
+                  />
+                ) : previewUrl ? (
+                  <div className="m-auto text-center text-sm text-gray-500">
+                    Preview is not supported for this file type.
+                  </div>
+                ) : (
+                  <div className="m-auto text-sm text-gray-400">
+                    Loading preview...
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {purgeTarget && (
+        <ConfirmDialog
+          type="delete"
+          title="Delete permanently?"
+          fileName={purgeTarget.title || purgeTarget.documentName}
+          onCancel={() => setPurgeTarget(null)}
+          onConfirm={() => purge(purgeTarget)}
+        />
+      )}
+    </div>
+  );
 }
 
 function isMockSeedDocument(doc) {
@@ -247,6 +476,8 @@ export default function StudentLibraryCourseDetailPage() {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState(null);
   const [editDoc, setEditDoc] = useState(null);
@@ -261,6 +492,15 @@ export default function StudentLibraryCourseDetailPage() {
   const [togglingIds, setTogglingIds] = useState(new Set());
   // Cooldown check mirrors DocumentService.updateVisibility().
   const [notice, setNotice] = useState(null);
+
+  // Đếm riêng, không gộp vào effect tải tài liệu: thùng rác gồm cả tài liệu của môn
+  // khác, và lỗi ở đây không được làm hỏng danh sách chính.
+  useEffect(() => {
+    documentApi
+      .getTrash()
+      .then((items) => setTrashCount(Array.isArray(items) ? items.length : 0))
+      .catch(() => setTrashCount(0));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -433,6 +673,7 @@ export default function StudentLibraryCourseDetailPage() {
       setError("");
       await documentApi.delete(doc.documentId);
       setDocs((prev) => prev.filter((d) => d.documentId !== doc.documentId));
+      setTrashCount((count) => count + 1);
       setPreviewDoc((current) => current?.documentId === doc.documentId ? null : current);
       setDialog(null);
     } catch (err) {
@@ -478,6 +719,36 @@ export default function StudentLibraryCourseDetailPage() {
         />
       )}
 
+      {showTrash && (
+        <TrashModal
+          onClose={() => setShowTrash(false)}
+          onChanged={(count, restoredItem) => {
+            setTrashCount(count);
+            // Chỉ tải lại danh sách khi tài liệu khôi phục thuộc đúng môn đang mở.
+            if (
+              restoredItem &&
+              Number(restoredItem.subjectId) === Number(subjectId)
+            ) {
+              documentApi
+                .getBySubject(subjectId)
+                .then((data) => {
+                  setDocs(
+                    (Array.isArray(data) ? data : []).filter(
+                      (doc) => !isMockSeedDocument(doc),
+                    ),
+                  );
+                })
+                .catch((err) =>
+                  setError(
+                    err.message ||
+                      "Restored, but the document list could not be refreshed.",
+                  ),
+                );
+            }
+          }}
+        />
+      )}
+
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
           {error}
@@ -519,6 +790,29 @@ export default function StudentLibraryCourseDetailPage() {
         <h1 className="text-3xl font-black text-gray-900 tracking-tight">
           {subjectName}
         </h1>
+        <div className="flex items-center gap-3">
+        <button
+          onClick={() => setShowTrash(true)}
+          className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl transition-colors"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
+          </svg>
+          Trash
+          {trashCount > 0 && (
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-black text-gray-600">
+              {trashCount}
+            </span>
+          )}
+        </button>
         <button
           onClick={() => setShowUpload(true)}
           className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors"
@@ -537,6 +831,7 @@ export default function StudentLibraryCourseDetailPage() {
           </svg>
           Upload Document
         </button>
+        </div>
       </div>
 
       {/* Document table */}
@@ -794,16 +1089,48 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [quota, setQuota] = useState(null);
   const userId = getCurrentUserId();
 
   const limitInfo = parseStorageLimitError(error);
 
+  useEffect(() => {
+    let cancelled = false;
+    libraryApi
+      .getOverview(userId)
+      .then((overview) => {
+        if (cancelled) return;
+        setQuota({
+          usedBytes: Number(overview?.totalStorageBytes ?? 0),
+          maxBytes: Number(overview?.maxStorageBytes ?? 0),
+        });
+      })
+      .catch(() => {
+        // Không chặn upload chỉ vì không đọc được hạn mức — server vẫn kiểm lại.
+        if (!cancelled) setQuota(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const freeBytes = quota ? Math.max(quota.maxBytes - quota.usedBytes, 0) : null;
+  // File PDF được lưu nguyên kích thước nên chặn được chắc chắn. Các định dạng khác
+  // sẽ convert sang PDF ở server và thường co lại, nên chỉ cảnh báo — chặn ở client
+  // sẽ từ chối nhầm file thật ra vẫn vừa chỗ.
+  const isExactSize = Boolean(file) && /\.pdf$/i.test(file.name || "");
+  const tooBig = Boolean(file) && freeBytes !== null && file.size > freeBytes;
+  const blockUpload = tooBig && isExactSize;
+
   async function handleUpload() {
     if (!file || !title.trim() || !subjectId) return;
     setUploading(true);
+    setUploadPercent(0);
     setError("");
     try {
       // PRIVATE: toggle off.
@@ -813,6 +1140,7 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
         subjectId,
         userId,
         "PRIVATE",
+        setUploadPercent,
       );
       onUploaded?.(newDoc);
       setUploading(false);
@@ -959,6 +1287,42 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
             </p>
           </div>
 
+          {/* Hạn mức hiện tại — cho người dùng biết trước khi chọn file, không phải
+              đợi upload xong mới nhận lỗi. Chỉ hiện khi chưa có lỗi quota từ server. */}
+          {quota && quota.maxBytes > 0 && !limitInfo && (
+            <div className="text-xs text-gray-500 px-1">
+              <span>
+                Storage:{" "}
+                <span className="font-semibold text-gray-700">
+                  {formatStorageBytes(quota.usedBytes)}
+                </span>{" "}
+                of {formatStorageBytes(quota.maxBytes)} used
+              </span>
+            </div>
+          )}
+
+          {tooBig && !limitInfo && (
+            <div
+              className={
+                "p-3 rounded-xl border " +
+                (blockUpload
+                  ? "bg-red-50 border-red-200"
+                  : "bg-amber-50 border-amber-200")
+              }
+            >
+              <p
+                className={
+                  "text-xs font-semibold " +
+                  (blockUpload ? "text-red-600" : "text-amber-700")
+                }
+              >
+                {blockUpload
+                  ? `This file (${formatStorageBytes(file.size)}) is larger than the ${formatStorageBytes(freeBytes)} you have left.`
+                  : `This file (${formatStorageBytes(file.size)}) is larger than the ${formatStorageBytes(freeBytes)} you have left. It is converted to PDF on upload and may still fit — you can try.`}
+              </p>
+            </div>
+          )}
+
           {/* Storage limit error */}
           {limitInfo ? (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -1012,10 +1376,14 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
           </button>
           <button
             onClick={handleUpload}
-            disabled={!file || !title.trim() || uploading}
+            disabled={!file || !title.trim() || uploading || blockUpload}
             className="flex items-center gap-2 px-6 py-3 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-full transition-colors"
           >
-            {uploading ? "Uploading..." : "Upload"}
+            {uploading
+              ? uploadPercent >= 100
+                ? "Processing..."
+                : `Uploading ${uploadPercent}%`
+              : "Upload"}
             {!uploading && (
               <svg
                 width="16"

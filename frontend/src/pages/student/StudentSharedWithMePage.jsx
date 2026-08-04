@@ -534,10 +534,17 @@ export default function StudentSharedWithMePage() {
                     <div className="flex items-center gap-2 min-w-0 border-l border-gray-200 self-stretch pl-4">
                       <Avatar name={item.ownerName} />
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-gray-700 truncate">
+                        {/* title= để tên/email bị truncate vẫn xem được đầy đủ khi hover. */}
+                        <p
+                          className="text-xs font-semibold text-gray-700 truncate"
+                          title={item.ownerName || ""}
+                        >
                           {item.ownerName || "—"}
                         </p>
-                        <p className="text-xs text-gray-400 truncate">
+                        <p
+                          className="text-xs text-gray-400 truncate"
+                          title={item.ownerEmail || ""}
+                        >
                           {item.ownerEmail}
                         </p>
                       </div>

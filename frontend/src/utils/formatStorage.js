@@ -24,6 +24,21 @@ export function formatStorageBytes(bytes) {
   return `${trim(value / BYTES_PER_GB, 2)}GB`;
 }
 
+/**
+ * Percentage of a quota that is in use, for progress bars.
+ *
+ * One decimal instead of a whole number because a fresh account sitting at 0.06% would otherwise
+ * render as a flat "0%" next to a visible file list. Clamped at 100 so an account that ends up
+ * over quota — an admin downgrading the plan does that without touching the files — reports a full
+ * bar rather than "180%".
+ */
+export function storagePercentOf(usedBytes, maxBytes) {
+  const used = Number(usedBytes);
+  const max = Number(maxBytes);
+  if (!Number.isFinite(used) || !Number.isFinite(max) || max <= 0) return 0;
+  return Number(Math.min(100, Math.max(0, (used / max) * 100)).toFixed(1));
+}
+
 /** Same rule for quotas, which the backend stores and the admin edits in megabytes. */
 export function formatStorageMb(megabytes) {
   const value = Number(megabytes);
