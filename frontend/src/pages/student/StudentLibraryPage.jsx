@@ -7,6 +7,7 @@ import {
   userSubjectApi,
 } from "../../services/libraryApi";
 import { formatStorageBytes } from "../../utils/formatStorage";
+import { practiceTestApi } from "../../services/practiceTestApi";
 
 // Badge config.
 function isMockSeedDocument(doc) {
@@ -332,6 +333,7 @@ export default function StudentLibraryPage() {
   // Stats: totalFiles, totalStorage
   const [totalFiles, setTotalFiles] = useState(0);
   const [totalStorageBytes, setTotalStorageBytes] = useState(0);
+  const [totalGenerated, setTotalGenerated] = useState(0);
   const [maxStorageBytes, setMaxStorageBytes] = useState(1024 * 1024 * 1024);
   const userId = getCurrentUserId();
 
@@ -375,6 +377,26 @@ export default function StudentLibraryPage() {
         setMaxStorageBytes(1024 * 1024 * 1024);
       })
       .finally(() => setLoading(false));
+  }, [userId]);
+
+  // Số practice test đã tạo — gọi riêng để lỗi ở đây không làm hỏng cả trang Library.
+  // API đã lọc theo tài liệu của user và bỏ tài liệu trong thùng rác.
+  useEffect(() => {
+    let cancelled = false;
+    practiceTestApi
+      .list(userId)
+      .then((tests) => {
+        if (!cancelled) {
+          setTotalGenerated(Array.isArray(tests) ? tests.length : 0);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTotalGenerated(0);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   // allSemesters: system semesters and subjects used by Create Course.
@@ -632,7 +654,9 @@ export default function StudentLibraryPage() {
             </svg>
           </div>
           <div>
-            <span className="text-xl font-black text-gray-900">0</span>
+            <span className="text-xl font-black text-gray-900">
+              {totalGenerated}
+            </span>
             <p className="text-[11px] font-bold tracking-wider text-gray-400 uppercase">
               GENERATED
             </p>

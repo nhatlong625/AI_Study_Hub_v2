@@ -2,6 +2,15 @@
 import { useState, useEffect, useRef } from "react";
 import { documentApi } from "../../services/libraryApi";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .replace(/,$/, "")
+    .toLowerCase();
+}
+
 function getCurrentUserId(fallback) {
   if (fallback) return fallback;
   try {
@@ -40,7 +49,7 @@ function Avatar({ name, email }) {
 
 export default function ShareDocumentModal({ doc, userId, onClose }) {
   const [inputValue, setInputValue] = useState("");
-  const [pendingEmail, setPendingEmail] = useState(null);
+  const [pendingEmails, setPendingEmails] = useState([]);
   const [permission, setPermission] = useState("VIEW");
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
@@ -60,23 +69,38 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
   }, [doc.documentId]);
 
   function commitEmail() {
-    const email = inputValue.trim().replace(/,$/, "");
-    if (email) {
-      setPendingEmail(email);
-      setInputValue("");
-      setShareError("");
+    const email = normalizeEmail(inputValue);
+    if (!email) return true;
+
+    if (!EMAIL_PATTERN.test(email)) {
+      setShareError(`"${email}" is not a valid email address.`);
+      return false;
     }
+    if (pendingEmails.includes(email)) {
+      setShareError(`${email} is already in the list.`);
+      return false;
+    }
+    if (sharedList.some((s) => normalizeEmail(s.sharedToEmail) === email)) {
+      setShareError(`This document is already shared with ${email}.`);
+      return false;
+    }
+
+    setPendingEmails((prev) => [...prev, email]);
+    setInputValue("");
+    setShareError("");
+    return true;
   }
 
   function handleKeyDown(e) {
     if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
       e.preventDefault();
       commitEmail();
+      return;
     }
-    // Xoá tag khi backspace và input rỗng
-    if (e.key === "Backspace" && !inputValue && pendingEmail) {
-      setInputValue(pendingEmail);
-      setPendingEmail(null);
+    // Backspace khi ô rỗng thì kéo tag cuối cùng trở lại ô nhập để sửa.
+    if (e.key === "Backspace" && !inputValue && pendingEmails.length > 0) {
+      setInputValue(pendingEmails[pendingEmails.length - 1]);
+      setPendingEmails((prev) => prev.slice(0, -1));
     }
   }
 
@@ -84,36 +108,64 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
     if (inputValue.trim()) commitEmail();
   }
 
-  function removePending() {
-    setPendingEmail(null);
-    setInputValue("");
+  function removePending(email) {
+    setPendingEmails((prev) => prev.filter((item) => item !== email));
     setShareError("");
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   async function handleShare() {
-    const email = pendingEmail || inputValue.trim();
-    if (!email) {
+    const emails = [...pendingEmails];
+    const typed = normalizeEmail(inputValue);
+    if (typed && !emails.includes(typed)) {
+      if (!EMAIL_PATTERN.test(typed)) {
+        setShareError(`"${typed}" is not a valid email address.`);
+        return;
+      }
+      emails.push(typed);
+    }
+
+    if (emails.length === 0) {
       setShareError("Please enter an email address.");
       return;
     }
+
     setShareError("");
     setSharing(true);
-    try {
-      const res = await documentApi.shareWithUser(
-        doc.documentId,
-        email,
-        permission,
-        getCurrentUserId(userId),
-      );
-      setSharedList((prev) => [...prev, res]);
-      setPendingEmail(null);
-      setInputValue("");
-    } catch (err) {
-      setShareError(err.message || "Could not share. Please try again.");
-    } finally {
-      setSharing(false);
+
+    // Gửi tuần tự để lỗi của người này không huỷ người kia; ai lỗi thì giữ lại làm tag.
+    const added = [];
+    const failed = [];
+    for (const email of emails) {
+      try {
+        added.push(
+          await documentApi.shareWithUser(
+            doc.documentId,
+            email,
+            permission,
+            getCurrentUserId(userId),
+          ),
+        );
+      } catch (err) {
+        failed.push({ email, message: err.message || "could not be shared" });
+      }
     }
+
+    if (added.length > 0) setSharedList((prev) => [...prev, ...added]);
+    setPendingEmails(failed.map((item) => item.email));
+    setInputValue("");
+    // Chỉ gắn tiền tố email khi thông báo của server chưa nhắc tới email đó, nếu không sẽ ra
+    // kiểu "a@b.com: No account found with email: a@b.com".
+    setShareError(
+      failed
+        .map((item) =>
+          item.message.toLowerCase().includes(item.email)
+            ? item.message
+            : `${item.email}: ${item.message}`,
+        )
+        .join(" · "),
+    );
+    setSharing(false);
   }
 
   async function handlePermissionChange(shareId, newPermission) {
@@ -147,7 +199,7 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
     }
   }
 
-  const canShare = !!(pendingEmail || inputValue.trim());
+  const canShare = pendingEmails.length > 0 || Boolean(inputValue.trim());
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
@@ -183,16 +235,19 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
               ${shareError ? "border-red-300" : "border-gray-200 focus-within:border-blue-400"}`}
             >
               {/* Email tag */}
-              {pendingEmail && (
-                <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full pl-2 pr-1 py-0.5 flex-shrink-0">
+              {pendingEmails.map((email) => (
+                <div
+                  key={email}
+                  className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full pl-2 pr-1 py-0.5 flex-shrink-0"
+                >
                   <div className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px] font-bold">
-                    {pendingEmail[0].toUpperCase()}
+                    {email[0].toUpperCase()}
                   </div>
                   <span className="text-xs text-blue-800 font-medium max-w-[160px] truncate">
-                    {pendingEmail}
+                    {email}
                   </span>
                   <button
-                    onClick={removePending}
+                    onClick={() => removePending(email)}
                     className="text-blue-400 hover:text-blue-700 ml-0.5"
                   >
                     <svg
@@ -207,7 +262,7 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
                     </svg>
                   </button>
                 </div>
-              )}
+              ))}
               <input
                 ref={inputRef}
                 type="text"
@@ -218,7 +273,9 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
                 }}
                 onKeyDown={handleKeyDown}
                 onBlur={handleBlur}
-                placeholder={pendingEmail ? "" : "Add people by email..."}
+                placeholder={
+                  pendingEmails.length > 0 ? "" : "Add people by email..."
+                }
                 className="flex-1 min-w-[120px] text-sm outline-none bg-transparent text-gray-800 placeholder-gray-400"
               />
             </div>
