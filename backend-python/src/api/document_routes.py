@@ -1,9 +1,15 @@
-﻿import re
+import re
 
 from fastapi import APIRouter
 
+from src.llm.llm_client import GeminiService
 from src.llm.summarizer import DocumentSummarizer
-from src.schemas.document import DocumentSummarizeRequest, DocumentSummarizeResponse
+from src.schemas.document import (
+    DocumentSummarizeRequest,
+    DocumentSummarizeResponse,
+    DocumentModerateRequest,
+    DocumentModerateResponse,
+)
 
 router = APIRouter()
 summarizer = DocumentSummarizer()
@@ -44,3 +50,21 @@ def summarize_document(payload: DocumentSummarizeRequest):
     )
 
 
+@router.post("/moderate", response_model=DocumentModerateResponse)
+def moderate_document(payload: DocumentModerateRequest):
+    """AI evaluates document relevance to its assigned subject."""
+    service = GeminiService()
+    score, reasoning, recommendation, used_mock = service.moderate_document(
+        title=payload.title,
+        summary_text=payload.summary_text,
+        subject_name=payload.subject_name,
+        subject_code=payload.subject_code,
+        subject_description=payload.subject_description,
+    )
+    return DocumentModerateResponse(
+        document_id=payload.document_id,
+        relevance_score=score,
+        ai_reasoning=reasoning,
+        recommendation=recommendation,
+        used_mock_ai=used_mock,
+    )

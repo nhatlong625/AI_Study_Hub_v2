@@ -1315,5 +1315,15 @@ BEGIN
 END
 GO
 
+/*==============================================================================
+  12. User Profile & Study Activity Index Optimization
+==============================================================================*/
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_USER_STUDY_ACTIVITY_user_date' AND object_id = OBJECT_ID(N'dbo.USER_STUDY_ACTIVITY'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_USER_STUDY_ACTIVITY_user_date
+    ON dbo.USER_STUDY_ACTIVITY (user_id, activity_date DESC);
+END
+GO
+
 PRINT N'Migrations applied successfully.';
 GO

@@ -39,6 +39,9 @@ public class UserController {
     @Value("${supabase.key}")
     private String supabaseKey;
 
+    /**
+     * Uploads user avatar image to storage and updates user profile URL.
+     */
     // ── POST /api/users/{userId}/avatar ───────────────────────────────────────
     @PostMapping(value = "/{userId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadAvatar(
@@ -79,6 +82,9 @@ public class UserController {
         }
     }
 
+    /**
+     * Retrieves the active plan name for the current user.
+     */
     // ── GET /api/users/{userId}/plan ──────────────────────────────────────────
     @GetMapping("/{userId}/plan")
     public ResponseEntity<Map<String, String>> getCurrentPlan(@PathVariable Integer userId) {
@@ -93,6 +99,9 @@ public class UserController {
         return getProfile(currentUser.id());
     }
 
+    /**
+     * Fetches user profile information including full name, email, avatar URL, and plan details.
+     */
     // ── GET /api/users/{userId} ───────────────────────────────────────────────
     @GetMapping("/{userId}")
     public ResponseEntity<UserProfileResponse> getProfile(@PathVariable Integer userId) {
@@ -150,6 +159,9 @@ public class UserController {
         return ResponseEntity.ok(res);
     }
 
+    /**
+     * Calculates user study stats including current streak, study duration, course count, and total XP points.
+     */
     // ── GET /api/users/{userId}/stats ─────────────────────────────────────────
     @GetMapping("/{userId}/stats")
     public ResponseEntity<UserStatsResponse> getStats(@PathVariable Integer userId) {
@@ -235,6 +247,9 @@ public class UserController {
         return ResponseEntity.ok(stats);
     }
 
+    /**
+     * Submits user feedback or bug report to the administrative review queue.
+     */
     // ── POST /api/users/report ────────────────────────────────────────────────
     @PostMapping("/report")
     public ResponseEntity<MessageResponse> submitReport(
@@ -269,6 +284,9 @@ public class UserController {
         return ResponseEntity.ok(new MessageResponse("Report submitted successfully"));
     }
 
+    /**
+     * Toggles automatic renewal state for user subscription.
+     */
     // ── PUT /api/users/{userId}/subscription/auto-renewal ─────────────────────
     @PutMapping("/{userId}/subscription/auto-renewal")
     public ResponseEntity<MessageResponse> updateAutoRenewal(
@@ -292,6 +310,9 @@ public class UserController {
         return ResponseEntity.ok(new MessageResponse(autoRenewal ? "Auto-renewal enabled" : "Auto-renewal disabled"));
     }
 
+    /**
+     * Retrieves current active subscription details, version limits, and renewal policy.
+     */
     // ── GET /api/users/{userId}/subscription ──────────────────────────────────
     @GetMapping("/{userId}/subscription")
     public ResponseEntity<Map<String, Object>> getSubscription(@PathVariable Integer userId) {
@@ -344,6 +365,9 @@ public class UserController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * Fetches billing and payment transaction history for current user.
+     */
     // ── GET /api/users/{userId}/billing-history ───────────────────────────────
     @GetMapping("/{userId}/billing-history")
     public ResponseEntity<List<Map<String, Object>>> getBillingHistory(@PathVariable Integer userId) {
@@ -358,6 +382,9 @@ public class UserController {
         return ResponseEntity.ok(payments);
     }
 
+    /**
+     * Cancels the active user subscription.
+     */
     // ── DELETE /api/users/{userId}/subscription ───────────────────────────────
     @DeleteMapping("/{userId}/subscription")
     public ResponseEntity<MessageResponse> cancelSubscription(@PathVariable Integer userId) {
@@ -376,6 +403,9 @@ public class UserController {
         return ResponseEntity.ok(new MessageResponse("Subscription cancelled successfully"));
     }
 
+    /**
+     * Lists active authentication login sessions for the current user.
+     */
     // ── GET /api/users/{userId}/sessions ──────────────────────────────────────
     @GetMapping("/{userId}/sessions")
     public ResponseEntity<List<Map<String, Object>>> getSessions(@PathVariable Integer userId) {

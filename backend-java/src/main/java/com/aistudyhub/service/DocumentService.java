@@ -20,6 +20,8 @@ import com.aistudyhub.event.DocumentUploadedEvent;
 import com.aistudyhub.repository.AiSummaryRepository;
 import com.aistudyhub.repository.DocumentShareRepository;
 import com.aistudyhub.repository.DocumentRepository;
+import com.aistudyhub.repository.PublicReviewLogRepository;
+import com.aistudyhub.entity.PublicReviewLog;
 import com.aistudyhub.repository.SemesterRepository;
 import com.aistudyhub.repository.SubjectRepository;
 import com.aistudyhub.repository.UserRepository;
@@ -50,6 +52,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -77,6 +80,7 @@ public class DocumentService {
     private final SemesterRepository semesterRepository;
     private final UserRepository userRepository;
     private final DocumentShareRepository documentShareRepository;
+    private final PublicReviewLogRepository publicReviewLogRepository;
     private final WebClient supabaseWebClient;
     private final StorageSettingsService storageSettingsService;
     private final CloudflareR2StorageService cloudflareR2StorageService;
@@ -360,7 +364,19 @@ public class DocumentService {
 
         doc.setVisibilityStatus(newStatus);
         doc.setUpdatedAt(LocalDateTime.now());
-        return toMetadataDto(documentRepository.save(doc));
+        Document saved = documentRepository.save(doc);
+
+        // AI auto-moderation when submitting for review (run asynchronously in background so UI response is instant)
+        if ("PENDING_REVIEW".equals(newStatus)) {
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    triggerAiModeration(saved);
+                } catch (Exception ignored) {
+                }
+            });
+        }
+
+        return toMetadataDto(saved);
     }
 
     /**
@@ -400,6 +416,16 @@ public class DocumentService {
         }
         doc.setVisibilityStatus("PUBLIC");
         doc.setUpdatedAt(LocalDateTime.now());
+
+        // Update review log with admin decision
+        publicReviewLogRepository.findTopByDocumentIdOrderByCreatedAtDesc(id)
+                .ifPresent(log -> {
+                    log.setReviewStatus("ADMIN_APPROVED");
+                    log.setReviewedBy(currentUser.id());
+                    log.setReviewedAt(LocalDateTime.now());
+                    publicReviewLogRepository.save(log);
+                });
+
         return toAdminDto(documentRepository.save(doc));
     }
 
@@ -425,7 +451,98 @@ public class DocumentService {
         }
         doc.setVisibilityStatus("PRIVATE");
         doc.setUpdatedAt(LocalDateTime.now());
+
+        // Update review log with admin rejection
+        publicReviewLogRepository.findTopByDocumentIdOrderByCreatedAtDesc(id)
+                .ifPresent(log -> {
+                    log.setReviewStatus("ADMIN_REJECTED");
+                    log.setReviewedBy(currentUser.id());
+                    log.setReviewedAt(LocalDateTime.now());
+                    if (reason != null && !reason.isBlank()) {
+                        log.setAiReasoning(log.getAiReasoning() + " | Admin note: " + reason);
+                    }
+                    publicReviewLogRepository.save(log);
+                });
+
         return toAdminDto(documentRepository.save(doc));
+    }
+
+    /**
+     * Calls the Python AI service to evaluate document relevance against its subject.
+     * Auto-approves (>=80%), leaves for admin review (50-79%), or auto-rejects (<50%).
+     */
+    private void triggerAiModeration(Document doc) {
+        var subject = subjectRepository.findById(doc.getSubjectId()).orElse(null);
+        if (subject == null) return;
+
+        String summaryText = aiSummaryRepository.findLatestFullFileSummary(doc.getDocumentId())
+                .orElse(null);
+
+        Map<String, Object> requestBody = Map.of(
+                "document_id", doc.getDocumentId(),
+                "title", doc.getTitle() != null ? doc.getTitle() : doc.getDocumentName(),
+                "summary_text", summaryText != null ? summaryText : "",
+                "subject_name", subject.getSubjectName(),
+                "subject_code", subject.getSubjectCode() != null ? subject.getSubjectCode() : "",
+                "subject_description", subject.getDescription() != null ? subject.getDescription() : ""
+        );
+
+        Map<String, Object> result;
+        try {
+            result = pythonAiWebClient.post()
+                    .uri("/api/documents/moderate")
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+        } catch (Exception ex) {
+            PublicReviewLog log = PublicReviewLog.builder()
+                    .documentId(doc.getDocumentId())
+                    .userId(doc.getUserId())
+                    .relevanceScore(null)
+                    .aiReasoning("AI service unavailable: " + ex.getMessage())
+                    .reviewStatus("PENDING_HUMAN")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            publicReviewLogRepository.save(log);
+            return;
+        }
+
+        if (result == null) return;
+
+        double score = result.get("relevance_score") instanceof Number n ? n.doubleValue() : 50.0;
+        String reasoning = String.valueOf(result.getOrDefault("ai_reasoning", ""));
+        String recommendation = String.valueOf(result.getOrDefault("recommendation", "PENDING_HUMAN"));
+        boolean usedMock = Boolean.TRUE.equals(result.get("used_mock_ai"));
+
+        String reviewStatus;
+        if (usedMock) {
+            reviewStatus = "PENDING_HUMAN";
+        } else if (score >= 80) {
+            reviewStatus = "AUTO_APPROVED";
+            doc.setVisibilityStatus("PUBLIC");
+            doc.setUpdatedAt(LocalDateTime.now());
+            documentRepository.save(doc);
+        } else if (score < 50) {
+            reviewStatus = "REJECTED";
+            doc.setVisibilityStatus("PRIVATE");
+            doc.setUpdatedAt(LocalDateTime.now());
+            documentRepository.save(doc);
+        } else {
+            reviewStatus = "PENDING_HUMAN";
+        }
+
+        PublicReviewLog log = PublicReviewLog.builder()
+                .documentId(doc.getDocumentId())
+                .userId(doc.getUserId())
+                .relevanceScore(BigDecimal.valueOf(score))
+                .aiReasoning(reasoning.length() > 2000 ? reasoning.substring(0, 2000) : reasoning)
+                .aiSummary(summaryText)
+                .reviewStatus(reviewStatus)
+                .createdAt(LocalDateTime.now())
+                .build();
+        publicReviewLogRepository.save(log);
     }
 
     private AdminDocumentResponse toAdminDto(Document d) {
@@ -454,6 +571,16 @@ public class DocumentService {
             semesterRepository.findById(s.getSemesterId())
                     .ifPresent(sem -> r.setSemesterName(sem.getSemesterName()));
         });
+
+        // Attach AI moderation info from PUBLIC_REVIEW_LOG
+        publicReviewLogRepository.findTopByDocumentIdOrderByCreatedAtDesc(d.getDocumentId())
+                .ifPresent(log -> {
+                    r.setRelevanceScore(log.getRelevanceScore() != null
+                            ? log.getRelevanceScore().doubleValue() : null);
+                    r.setAiReasoning(log.getAiReasoning());
+                    r.setAiRecommendation(log.getReviewStatus());
+                    r.setReviewStatus(log.getReviewStatus());
+                });
 
         return r;
     }

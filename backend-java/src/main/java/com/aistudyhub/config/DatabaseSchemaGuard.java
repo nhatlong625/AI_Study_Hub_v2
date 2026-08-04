@@ -160,6 +160,26 @@ public class DatabaseSchemaGuard {
                    AND COL_LENGTH(N'dbo.USER_SUBSCRIPTION', N'version_id') IS NULL
                     ALTER TABLE dbo.USER_SUBSCRIPTION ADD version_id INT NULL
                 """);
+
+        run("PUBLIC_REVIEW_LOG table", """
+                IF OBJECT_ID(N'dbo.PUBLIC_REVIEW_LOG', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.PUBLIC_REVIEW_LOG
+                    (
+                        log_id          INT IDENTITY(1,1)  NOT NULL,
+                        document_id     INT                NOT NULL,
+                        user_id         INT                NOT NULL,
+                        relevance_score DECIMAL(5,2)       NULL,
+                        ai_reasoning    NVARCHAR(2000)     NULL,
+                        ai_summary      NVARCHAR(MAX)      NULL,
+                        review_status   NVARCHAR(30)       NOT NULL CONSTRAINT DF_REVIEW_LOG_status DEFAULT N'PENDING',
+                        reviewed_by     INT                NULL,
+                        reviewed_at     DATETIME2          NULL,
+                        created_at      DATETIME2          NOT NULL CONSTRAINT DF_REVIEW_LOG_created_at DEFAULT SYSDATETIME(),
+                        CONSTRAINT PK_PUBLIC_REVIEW_LOG PRIMARY KEY (log_id)
+                    );
+                END
+                """);
     }
 
     private void run(String label, String sql) {
