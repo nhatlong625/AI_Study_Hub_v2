@@ -6,7 +6,10 @@ import {
   libraryApi,
   userSubjectApi,
 } from "../../services/libraryApi";
-import { formatStorageBytes } from "../../utils/formatStorage";
+import {
+  formatStorageBytes,
+  storagePercentOf,
+} from "../../utils/formatStorage";
 import { practiceTestApi } from "../../services/practiceTestApi";
 
 // Badge config.
@@ -68,7 +71,7 @@ function semesterOrderValue(semester = {}) {
 // Normalized note.
 function CreateCourseModal({
   allSemesters,
-  userSubjectNames,
+  userSubjectIds,
   onClose,
   onCreated,
 }) {
@@ -83,7 +86,7 @@ function CreateCourseModal({
   // Normalized note.
   const availableSubjects = selectedSem
     ? (selectedSem.subjects ?? []).filter(
-        (sub) => !userSubjectNames.includes(sub.subjectName),
+        (sub) => !userSubjectIds.includes(sub.subjectId),
       )
     : [];
 
@@ -442,13 +445,11 @@ export default function StudentLibraryPage() {
   const totalCourses = userSubjects.length;
   const storageLabel = formatStorageBytes(totalStorageBytes);
   const maxStorageLabel = formatStorageBytes(maxStorageBytes);
-  const storagePercent = Math.min(
-    100,
-    maxStorageBytes > 0 ? (totalStorageBytes / maxStorageBytes) * 100 : 0,
-  ).toFixed(1);
-  const userSubjectNames = userSubjects
-    .map((us) => us.subjectName)
-    .filter(Boolean);
+  const storagePercent = storagePercentOf(totalStorageBytes, maxStorageBytes);
+  // Lọc trùng theo subjectId, không theo tên: hai môn khác mã vẫn có thể trùng tên.
+  const userSubjectIds = userSubjects
+    .map((us) => us.subjectId)
+    .filter((id) => id != null);
 
   async function handleCourseCreated({ subject }) {
     try {
@@ -527,7 +528,7 @@ export default function StudentLibraryPage() {
       {showCreate && (
         <CreateCourseModal
           allSemesters={allSemesters}
-          userSubjectNames={userSubjectNames}
+          userSubjectIds={userSubjectIds}
           onClose={() => setShowCreate(false)}
           onCreated={handleCourseCreated}
         />
