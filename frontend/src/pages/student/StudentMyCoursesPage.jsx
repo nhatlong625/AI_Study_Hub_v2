@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import Card from '../../components/common/Card';
 import PageHeader from '../../components/common/PageHeader';
 import CourseCard from '../../components/student/CourseCard';
@@ -20,6 +21,8 @@ function toCourseCard(subject, semesterName) {
 }
 
 function StudentMyCoursesPage() {
+  const outletCtx = useOutletContext() || {};
+  const selectedMajorId = outletCtx.selectedMajorId;
   const [courses, setCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,7 +30,7 @@ function StudentMyCoursesPage() {
   useEffect(() => {
     let cancelled = false;
     semesterApi
-      .getAll()
+      .getAll(selectedMajorId)
       .then((semesters) => {
         const nextCourses = (Array.isArray(semesters) ? semesters : []).flatMap((semester) =>
           (semester.subjects || []).map((subject) => toCourseCard(subject, semester.semesterName)),
@@ -43,7 +46,7 @@ function StudentMyCoursesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedMajorId]);
 
   return (
     <div className="page-shell">
@@ -67,7 +70,7 @@ function StudentMyCoursesPage() {
         ) : courses.length === 0 ? (
           <div className="dm-empty">No courses found.</div>
         ) : (
-          courses.slice(0, 3).map((course) => <CourseCard key={course.id} course={course} cta="Continue learning" />)
+          courses.map((course) => <CourseCard key={course.id} course={course} cta="Continue learning" />)
         )}
       </section>
     </div>

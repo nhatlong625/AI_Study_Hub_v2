@@ -323,9 +323,23 @@ export default function StudentLibraryPage() {
     libraryApi
       .getOverview(userId)
       .then((overview) => {
-        const semesters = Array.isArray(overview?.semesters)
+        let semesters = Array.isArray(overview?.semesters)
           ? overview.semesters
           : [];
+        // When a specific major is selected, only keep subjects belonging to that
+        // major (and drop semesters that end up with no matching subjects).
+        if (selectedMajorId) {
+          const selected = Number(selectedMajorId);
+          semesters = semesters
+            .map((semester) => ({
+              ...semester,
+              subjects: (semester.subjects ?? []).filter(
+                (subject) =>
+                  Number(subject.majorId ?? subject?.major?.majorId) === selected,
+              ),
+            }))
+            .filter((semester) => (semester.subjects ?? []).length > 0);
+        }
         const links = [];
         const counts = {};
         const storageBySubject = {};
@@ -358,7 +372,7 @@ export default function StudentLibraryPage() {
         setMaxStorageBytes(1024 * 1024 * 1024);
       })
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, selectedMajorId]);
 
   // allSemesters: system semesters and subjects used by Create Course.
   const userSubjects = addedSubjects.map((link) => {
