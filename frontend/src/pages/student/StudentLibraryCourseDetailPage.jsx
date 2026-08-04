@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import DocumentActionMenu from "../../components/common/DocumentActionMenu";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import EditDocumentModal from "../../components/common/EditDocumentModal";
-import { documentApi, semesterApi } from "../../services/libraryApi";
+import { documentApi, libraryApi, semesterApi } from "../../services/libraryApi";
 import ShareDocumentModal from "../../components/common/ShareDocumentModal";
 import UpgradePricingModal from "../../components/student/UpgradePricingModal";
 import { useHistoryContext } from "../../hooks/useHistory";
@@ -794,16 +794,48 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [quota, setQuota] = useState(null);
   const userId = getCurrentUserId();
 
   const limitInfo = parseStorageLimitError(error);
 
+  useEffect(() => {
+    let cancelled = false;
+    libraryApi
+      .getOverview(userId)
+      .then((overview) => {
+        if (cancelled) return;
+        setQuota({
+          usedBytes: Number(overview?.totalStorageBytes ?? 0),
+          maxBytes: Number(overview?.maxStorageBytes ?? 0),
+        });
+      })
+      .catch(() => {
+        // Không chặn upload chỉ vì không đọc được hạn mức — server vẫn kiểm lại.
+        if (!cancelled) setQuota(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const freeBytes = quota ? Math.max(quota.maxBytes - quota.usedBytes, 0) : null;
+  // File PDF được lưu nguyên kích thước nên chặn được chắc chắn. Các định dạng khác
+  // sẽ convert sang PDF ở server và thường co lại, nên chỉ cảnh báo — chặn ở client
+  // sẽ từ chối nhầm file thật ra vẫn vừa chỗ.
+  const isExactSize = Boolean(file) && /\.pdf$/i.test(file.name || "");
+  const tooBig = Boolean(file) && freeBytes !== null && file.size > freeBytes;
+  const blockUpload = tooBig && isExactSize;
+
   async function handleUpload() {
     if (!file || !title.trim() || !subjectId) return;
     setUploading(true);
+    setUploadPercent(0);
     setError("");
     try {
       // PRIVATE: toggle off.
@@ -813,6 +845,7 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
         subjectId,
         userId,
         "PRIVATE",
+        setUploadPercent,
       );
       onUploaded?.(newDoc);
       setUploading(false);
@@ -959,6 +992,42 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
             </p>
           </div>
 
+          {/* Hạn mức hiện tại — cho người dùng biết trước khi chọn file, không phải
+              đợi upload xong mới nhận lỗi. Chỉ hiện khi chưa có lỗi quota từ server. */}
+          {quota && quota.maxBytes > 0 && !limitInfo && (
+            <div className="text-xs text-gray-500 px-1">
+              <span>
+                Storage:{" "}
+                <span className="font-semibold text-gray-700">
+                  {formatStorageBytes(quota.usedBytes)}
+                </span>{" "}
+                of {formatStorageBytes(quota.maxBytes)} used
+              </span>
+            </div>
+          )}
+
+          {tooBig && !limitInfo && (
+            <div
+              className={
+                "p-3 rounded-xl border " +
+                (blockUpload
+                  ? "bg-red-50 border-red-200"
+                  : "bg-amber-50 border-amber-200")
+              }
+            >
+              <p
+                className={
+                  "text-xs font-semibold " +
+                  (blockUpload ? "text-red-600" : "text-amber-700")
+                }
+              >
+                {blockUpload
+                  ? `This file (${formatStorageBytes(file.size)}) is larger than the ${formatStorageBytes(freeBytes)} you have left.`
+                  : `This file (${formatStorageBytes(file.size)}) is larger than the ${formatStorageBytes(freeBytes)} you have left. It is converted to PDF on upload and may still fit — you can try.`}
+              </p>
+            </div>
+          )}
+
           {/* Storage limit error */}
           {limitInfo ? (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -1012,10 +1081,14 @@ function LibraryUploadModal({ subjectId, onClose, onUploaded }) {
           </button>
           <button
             onClick={handleUpload}
-            disabled={!file || !title.trim() || uploading}
+            disabled={!file || !title.trim() || uploading || blockUpload}
             className="flex items-center gap-2 px-6 py-3 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-full transition-colors"
           >
-            {uploading ? "Uploading..." : "Upload"}
+            {uploading
+              ? uploadPercent >= 100
+                ? "Processing..."
+                : `Uploading ${uploadPercent}%`
+              : "Upload"}
             {!uploading && (
               <svg
                 width="16"

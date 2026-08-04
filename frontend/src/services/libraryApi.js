@@ -127,6 +127,7 @@ export const documentApi = {
     subjectId,
     userId,
     visibilityStatus = "PRIVATE",
+    onProgress,
   ) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -135,21 +136,47 @@ export const documentApi = {
     formData.append("userId", userId);
     formData.append("visibilityStatus", visibilityStatus);
 
-    const res = await fetch(`${BASE_URL}/documents/upload`, {
-      method: "POST",
-      headers: {
-        ...(localStorage.getItem("token")
-          ? { Authorization: `Bearer ${localStorage.getItem("token")}` }
-          : {}),
-      },
-      body: formData, // Khong set Content-Type - browser tu set boundary
+    // XMLHttpRequest thay vì fetch: chỉ XHR mới báo được tiến độ bytes đã gửi.
+    // File 40MB mà không có phản hồi gì thì người dùng tưởng treo.
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${BASE_URL}/documents/upload`);
+
+      const token = localStorage.getItem("token");
+      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      // Khong set Content-Type - browser tu set boundary
+
+      if (typeof onProgress === "function") {
+        xhr.upload.addEventListener("progress", (event) => {
+          if (!event.lengthComputable) return;
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        });
+        // Gửi xong là tới lượt server convert + đẩy lên storage: giữ ở 100% và để
+        // UI tự đổi nhãn sang "Processing", đừng để thanh đứng ở 99% như treo.
+        xhr.upload.addEventListener("load", () => onProgress(100));
+      }
+
+      xhr.addEventListener("load", () => {
+        let body = null;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          /* để null */
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(body);
+          return;
+        }
+        reject(new Error(body?.message || `Upload failed (HTTP ${xhr.status}).`));
+      });
+
+      xhr.addEventListener("error", () =>
+        reject(new Error("Network error while uploading. Please try again.")),
+      );
+      xhr.addEventListener("abort", () => reject(new Error("Upload cancelled.")));
+
+      xhr.send(formData);
     });
-    if (!res.ok) {
-      const errorBody = await res.json().catch(() => null);
-      const message = errorBody?.message || `Upload failed (HTTP ${res.status}).`;
-      throw new Error(message || `HTTP ${res.status}`);
-    }
-    return res.json();
   },
 
   // Load all documents in one subject for the current user Library view.
