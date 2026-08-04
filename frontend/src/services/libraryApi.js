@@ -236,6 +236,41 @@ export const documentApi = {
     return res.text();
   },
 
+  // Thùng rác của chính người dùng — khác nhánh /admin/documents/trash mà adminService
+  // dùng: BE scope theo currentUser nên chỉ trả về tài liệu do user này xoá.
+  getTrash: async () => {
+    const res = await fetch(`${BASE_URL}/documents/trash`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error("Could not load Trash.");
+    return res.json();
+  },
+
+  restoreFromTrash: async (documentId) => {
+    const res = await fetch(`${BASE_URL}/documents/trash/${documentId}/restore`, {
+      method: "POST",
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Could not restore this document.");
+    }
+    return res.json();
+  },
+
+  purgeFromTrash: async (documentId) => {
+    const res = await fetch(`${BASE_URL}/documents/trash/${documentId}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        err.message || "Could not permanently delete this document.",
+      );
+    }
+  },
+
   // Update visibility; BE applies the state-transition rules:
   //   PRIVATE -> PENDING_REVIEW: submit admin review request.
   //   PUBLIC -> PRIVATE: immediate.
