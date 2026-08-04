@@ -366,13 +366,14 @@ public class DocumentService {
         doc.setUpdatedAt(LocalDateTime.now());
         Document saved = documentRepository.save(doc);
 
-        // AI auto-moderation when submitting for review
+        // AI auto-moderation when submitting for review (run asynchronously in background so UI response is instant)
         if ("PENDING_REVIEW".equals(newStatus)) {
-            try {
-                triggerAiModeration(saved);
-            } catch (Exception ignored) {
-                // AI moderation failure should not block the submission
-            }
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    triggerAiModeration(saved);
+                } catch (Exception ignored) {
+                }
+            });
         }
 
         return toMetadataDto(saved);
