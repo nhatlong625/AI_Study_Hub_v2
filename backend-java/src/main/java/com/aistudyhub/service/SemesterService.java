@@ -4,11 +4,16 @@ import com.aistudyhub.dto.response.*;
 import com.aistudyhub.entity.*;
 import com.aistudyhub.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -17,10 +22,36 @@ public class SemesterService {
     private final SemesterRepository semesterRepository;
     private final SubjectRepository subjectRepository;
     private final DocumentRepository documentRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     private List<SemesterResponse> cachedSemesters = null;
     private long lastCacheTime = 0;
     private static final long CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+    /** Lấy danh sách (semester_id -> List<subject_id>) từ SEMESTER_SUBJECT (link phụ) */
+    private Map<Integer, List<Integer>> loadLinkedSubjectIds() {
+        Map<Integer, List<Integer>> result = new HashMap<>();
+        jdbcTemplate.query("SELECT semester_id, subject_id FROM dbo.SEMESTER_SUBJECT", rs -> {
+            result.computeIfAbsent(rs.getInt("semester_id"), k -> new ArrayList<>())
+                  .add(rs.getInt("subject_id"));
+        });
+        return result;
+    }
+
+    /** Merge linked subjects vào subjectsBySemester map */
+    private void mergeLinkedSubjects(Map<Integer, List<Subject>> subjectsBySemester) {
+        Map<Integer, List<Integer>> linkedIds = loadLinkedSubjectIds();
+        Map<Integer, Subject> allSubjects = subjectRepository.findAll().stream()
+                .collect(Collectors.toMap(Subject::getSubjectId, s -> s, (a, b) -> a));
+        Set<Integer> existingIds = subjectsBySemester.values().stream()
+                .flatMap(List::stream).map(Subject::getSubjectId).collect(Collectors.toSet());
+        linkedIds.forEach((semId, subIds) -> {
+            List<Subject> existing = subjectsBySemester.computeIfAbsent(semId, k -> new ArrayList<>());
+            subIds.stream().filter(id -> !existingIds.contains(id))
+                  .map(allSubjects::get).filter(s -> s != null)
+                  .forEach(existing::add);
+        });
+    }
 
     public List<SemesterResponse> getAllSemesters() {
         if (cachedSemesters != null && System.currentTimeMillis() - lastCacheTime < CACHE_DURATION_MS) {
@@ -37,6 +68,8 @@ public class SemesterService {
         Map<Integer, List<Subject>> subjectsBySemester = subjectRepository.findAll()
                 .stream()
                 .collect(Collectors.groupingBy(Subject::getSemesterId));
+
+        mergeLinkedSubjects(subjectsBySemester);
 
         List<SemesterResponse> response = semesterRepository.findAll().stream().map(sem -> {
             SemesterResponse res = new SemesterResponse();
@@ -91,6 +124,7 @@ public class SemesterService {
         Map<Integer, List<Subject>> subjectsBySemester = subjectRepository.findAll()
                 .stream()
                 .collect(Collectors.groupingBy(Subject::getSemesterId));
+        mergeLinkedSubjects(subjectsBySemester);
 
         List<Semester> filteredSemesters = semesterRepository.findAll().stream()
                 .filter(sem -> sem.getMajorId() == null || sem.getMajorId().equals(majorId))
