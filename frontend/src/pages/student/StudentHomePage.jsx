@@ -46,11 +46,13 @@ export default function StudentHomePage() {
   // publicDocsBySemester: { semesterId: { totalFiles, recentDoc } }
   const [statsMap, setStatsMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     setLoading(true);
+    setLoadError("");
     semesterApi.getAll(selectedMajorId).then((data) => {
-      const sortedSemesters = [...data].sort(
+      const sortedSemesters = [...(Array.isArray(data) ? data : [])].sort(
         (a, b) => getSemesterNumber(a) - getSemesterNumber(b),
       );
       const nextStatsMap = {};
@@ -123,6 +125,13 @@ export default function StudentHomePage() {
           }));
         });
       });
+    }).catch((err) => {
+      // Không để lỗi (401 hết hạn token, mất mạng...) làm kẹt trạng thái loading,
+      // vì khi đó trang chỉ hiện "Loading..." vĩnh viễn trông như bị trắng.
+      setSemesters([]);
+      setStatsMap({});
+      setLoadError(err?.message || "Could not load semesters. Please try again.");
+      setLoading(false);
     });
   }, [selectedMajorId]);
 
@@ -184,6 +193,20 @@ export default function StudentHomePage() {
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
             Loading...
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.5" className="mb-3 opacity-40">
+              <circle cx="12" cy="12" r="9" /><path d="M12 8v5" /><path d="M12 16h.01" />
+            </svg>
+            <p className="text-sm font-medium">{loadError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 text-xs text-indigo-600 hover:underline"
+            >
+              Try again
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
