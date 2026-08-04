@@ -123,6 +123,13 @@ export const adminService = {
   deleteLibraryCourse: async (courseId, deleteDocuments = false) => request(`/api/admin/library/courses/${courseId}?deleteDocuments=${deleteDocuments ? 'true' : 'false'}`, {
     method: 'DELETE',
   }),
+  searchSubjects: async (query = '') => request(`/api/admin/library/subjects/search?q=${encodeURIComponent(query)}`),
+  linkSubjectToSemester: async (semesterId, subjectId) => request(`/api/admin/library/semesters/${semesterId}/link-subject/${subjectId}`, {
+    method: 'POST',
+  }),
+  unlinkSubjectFromSemester: async (semesterId, subjectId) => request(`/api/admin/library/semesters/${semesterId}/link-subject/${subjectId}`, {
+    method: 'DELETE',
+  }),
   getDocuments: async () => request('/api/admin/document-management'),
   getDocumentsBySubject: async (subjectId) => request(`/api/admin/library/courses/${subjectId}/documents`),
   getDocumentTrash: async () => request('/api/admin/documents/trash'),
