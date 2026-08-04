@@ -86,9 +86,15 @@ function CreateCourseModal({
       )
     : [];
 
-  const filtered = availableSubjects.filter((sub) =>
-    sub.subjectName.toLowerCase().includes(search.toLowerCase()),
-  );
+  // Khớp cả mã lẫn tên — ô search vốn hứa tìm theo mã nhưng trước đây chỉ lọc theo tên.
+  const filtered = availableSubjects.filter((sub) => {
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      `${sub.subjectCode || ""}`.toLowerCase().includes(query) ||
+      `${sub.subjectName || ""}`.toLowerCase().includes(query)
+    );
+  });
 
   function handleSelectSemester(sem) {
     setSelectedSem(sem);
@@ -213,11 +219,11 @@ function CreateCourseModal({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search course code..."
+                placeholder="Search by code or name..."
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 transition-all mb-3"
               />
               {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
-              <div className="max-h-64 overflow-y-auto flex flex-col gap-1">
+              <div className="max-h-80 overflow-y-auto flex flex-col gap-1">
                 {filtered.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-6">
                     {availableSubjects.length === 0
@@ -247,7 +253,18 @@ function CreateCourseModal({
                         >
                           <FolderIcon />
                         </span>
-                        <span className="flex-1">{sub.subjectName}</span>
+                        <span className="flex-1 min-w-0">
+                          {/* Mã là danh tính chính của môn — phần còn lại của app cũng gọi
+                              theo mã. Thiếu mã thì lùi về tên để dòng đầu không bị trống. */}
+                          <span className="block font-bold truncate">
+                            {sub.subjectCode || sub.subjectName}
+                          </span>
+                          {sub.subjectCode && (
+                            <span className="block text-xs font-normal text-gray-500 truncate">
+                              {sub.subjectName}
+                            </span>
+                          )}
+                        </span>
                         {isSelected && (
                           <svg
                             width="16"
