@@ -1039,7 +1039,7 @@ function LibraryManagementPage() {
 
               {linkSearching && (
                 <div style={{ marginTop: 12, padding: '16px', textAlign: 'center', color: '#6b7280', fontSize: 13 }}>
-                  <span className="lib-spinner" style={{ display: 'inline-block', width: 18, height: 18, border: '2px solid #e5e7eb', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: 8, verticalAlign: 'middle' }} />
+                  <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid #e5e7eb', borderTopColor: '#6366f1', borderRadius: '50%', marginRight: 8, verticalAlign: 'middle' }} />
                   Searching...
                 </div>
               )}
