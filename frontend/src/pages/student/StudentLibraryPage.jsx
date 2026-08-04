@@ -86,9 +86,15 @@ function CreateCourseModal({
       )
     : [];
 
-  const filtered = availableSubjects.filter((sub) =>
-    sub.subjectName.toLowerCase().includes(search.toLowerCase()),
-  );
+  // Khớp cả mã lẫn tên — ô search vốn hứa tìm theo mã nhưng trước đây chỉ lọc theo tên.
+  const filtered = availableSubjects.filter((sub) => {
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      `${sub.subjectCode || ""}`.toLowerCase().includes(query) ||
+      `${sub.subjectName || ""}`.toLowerCase().includes(query)
+    );
+  });
 
   function handleSelectSemester(sem) {
     setSelectedSem(sem);
@@ -213,7 +219,7 @@ function CreateCourseModal({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search course code..."
+                placeholder="Search by code or name..."
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 transition-all mb-3"
               />
               {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
