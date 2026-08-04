@@ -2,6 +2,15 @@
 import { useState, useEffect, useRef } from "react";
 import { documentApi } from "../../services/libraryApi";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .replace(/,$/, "")
+    .toLowerCase();
+}
+
 function getCurrentUserId(fallback) {
   if (fallback) return fallback;
   try {
@@ -60,12 +69,22 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
   }, [doc.documentId]);
 
   function commitEmail() {
-    const email = inputValue.trim().replace(/,$/, "");
-    if (email) {
-      setPendingEmail(email);
-      setInputValue("");
-      setShareError("");
+    const email = normalizeEmail(inputValue);
+    if (!email) return true;
+
+    if (!EMAIL_PATTERN.test(email)) {
+      setShareError(`"${email}" is not a valid email address.`);
+      return false;
     }
+    if (sharedList.some((s) => normalizeEmail(s.sharedToEmail) === email)) {
+      setShareError(`This document is already shared with ${email}.`);
+      return false;
+    }
+
+    setPendingEmail(email);
+    setInputValue("");
+    setShareError("");
+    return true;
   }
 
   function handleKeyDown(e) {
@@ -92,9 +111,13 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
   }
 
   async function handleShare() {
-    const email = pendingEmail || inputValue.trim();
+    const email = pendingEmail || normalizeEmail(inputValue);
     if (!email) {
       setShareError("Please enter an email address.");
+      return;
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      setShareError(`"${email}" is not a valid email address.`);
       return;
     }
     setShareError("");
