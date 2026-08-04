@@ -1,5 +1,6 @@
 package com.aistudyhub.controller;
 
+import com.aistudyhub.service.SemesterService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdminController {
     private final NamedParameterJdbcTemplate jdbc;
+    private final SemesterService semesterService;
 
     @GetMapping("/dashboard")
     public Map<String, Object> dashboard() {
@@ -537,6 +539,7 @@ public class AdminController {
             END CATCH
             """;
         jdbc.update(cascadeSql, Map.of("id", id));
+        semesterService.clearCache();
         return ResponseEntity.noContent().build();
     }
 
@@ -567,6 +570,7 @@ public class AdminController {
             OUTPUT INSERTED.subject_id
             VALUES (:semesterId, :name, :code, :description, GETDATE(), NULL)
             """, params("semesterId", id).addValue("name", required(body, "name")).addValue("code", str(body, "code", "")).addValue("description", str(body, "instructor", "")), Integer.class);
+        semesterService.clearCache();
         return ResponseEntity.status(HttpStatus.CREATED).body(courseById(courseId));
     }
 
@@ -589,9 +593,33 @@ public class AdminController {
     /** Gán môn học có sẵn vào semester hiện tại (link phụ) */
     @PostMapping("/library/semesters/{semesterId}/link-subject/{subjectId}")
     public ResponseEntity<Map<String, Object>> linkSubject(@PathVariable Integer semesterId, @PathVariable Integer subjectId) {
+        // Kiểm tra semester tồn tại
+        boolean semesterExists = Boolean.TRUE.equals(jdbc.query(
+                "SELECT 1 FROM dbo.SEMESTER WHERE semester_id = :semesterId",
+                Map.of("semesterId", semesterId), rs -> rs.next() ? true : null));
+        if (!semesterExists) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Không tìm thấy kỳ học.", "semesterId", semesterId));
+        }
+        // Lấy semester "nhà" của subject để kiểm tra tồn tại và chống link vào chính nhà
+        Integer homeSemesterId = jdbc.query("SELECT semester_id FROM dbo.SUBJECT WHERE subject_id = :subjectId",
+                Map.of("subjectId", subjectId), rs -> rs.next() ? rs.getInt("semester_id") : null);
+        if (homeSemesterId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Không tìm thấy môn học.", "subjectId", subjectId));
+        }
+        if (homeSemesterId.equals(semesterId)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Môn học này đã thuộc về kỳ học hiện tại.", "semesterId", semesterId, "subjectId", subjectId));
+        }
+        // Kiểm tra link trùng
+        boolean duplicateExists = Boolean.TRUE.equals(jdbc.query(
+                "SELECT 1 FROM dbo.SEMESTER_SUBJECT WHERE semester_id = :semesterId AND subject_id = :subjectId",
+                Map.of("semesterId", semesterId, "subjectId", subjectId), rs -> rs.next() ? true : null));
+        if (duplicateExists) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Môn học đã được liên kết với kỳ học này.", "semesterId", semesterId, "subjectId", subjectId));
+        }
         jdbc.update("""
             INSERT INTO dbo.SEMESTER_SUBJECT (semester_id, subject_id) VALUES (:semesterId, :subjectId)
             """, Map.of("semesterId", semesterId, "subjectId", subjectId));
+        semesterService.clearCache();
         return ResponseEntity.ok(courseById(subjectId));
     }
 
@@ -601,6 +629,7 @@ public class AdminController {
         jdbc.update("""
             DELETE FROM dbo.SEMESTER_SUBJECT WHERE semester_id = :semesterId AND subject_id = :subjectId
             """, Map.of("semesterId", semesterId, "subjectId", subjectId));
+        semesterService.clearCache();
         return ResponseEntity.noContent().build();
     }
 
@@ -618,6 +647,7 @@ public class AdminController {
                 .addValue("code", str(body, "code", ""))
                 .addValue("description", str(body, "instructor", "")));
         if (rows == 0) throw notFound("Course not found.");
+        semesterService.clearCache();
         return courseById(id);
     }
 
@@ -650,6 +680,7 @@ public class AdminController {
 
         int rows = jdbc.update("DELETE FROM dbo.SUBJECT WHERE subject_id = :id", p);
         if (rows == 0) throw notFound("Course not found.");
+        semesterService.clearCache();
         return ResponseEntity.noContent().build();
     }
 
