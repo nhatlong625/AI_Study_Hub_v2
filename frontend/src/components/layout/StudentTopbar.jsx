@@ -66,7 +66,9 @@ const SearchWrapper = ({ children }) => (
   </div>
 );
 
-function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick }) {
+import MajorSelector from "../student/MajorSelector";
+
+function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick, selectedMajorId, onSelectMajor }) {
   const topbarClass =
     "sticky top-0 z-10 flex items-center justify-between gap-5 px-7 py-4 bg-white border-b border-[#f1eff5]";
 
@@ -228,7 +230,13 @@ function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick }) {
         )}
       </SearchWrapper>
 
-      <div className="flex items-center gap-5" style={{ gap: "20px" }}>
+      <div className="flex items-center gap-5" style={{ gap: "16px" }}>
+        {onSelectMajor && (
+          <MajorSelector
+            selectedMajorId={selectedMajorId}
+            onSelectMajor={onSelectMajor}
+          />
+        )}
         <div
           style={{
             display: "flex",

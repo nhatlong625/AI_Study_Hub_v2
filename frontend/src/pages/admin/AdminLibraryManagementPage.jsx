@@ -73,6 +73,10 @@ function LibraryManagementPage() {
   const [editCourseForm, setEditCourseForm] = useState(EMPTY_COURSE_FORM);
   const [deleteCourse, setDeleteCourse] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [linkCourseModal, setLinkCourseModal] = useState(false);
+  const [linkSearchQuery, setLinkSearchQuery] = useState('');
+  const [linkSearchResults, setLinkSearchResults] = useState([]);
+  const [linkSearching, setLinkSearching] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewError, setPreviewError] = useState('');
   const [deleteDoc, setDeleteDoc] = useState(null);
@@ -212,13 +216,13 @@ function LibraryManagementPage() {
 
   // Prevent body scroll when any modal open
   useEffect(() => {
-    if (editSemester || deleteSemester || createModal || createCourseModal || editCourse || deleteCourse || previewDoc || deleteDoc) {
+    if (editSemester || deleteSemester || createModal || createCourseModal || linkCourseModal || editCourse || deleteCourse || previewDoc || deleteDoc) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [editSemester, deleteSemester, createModal, createCourseModal, editCourse, deleteCourse, previewDoc, deleteDoc]);
+  }, [editSemester, deleteSemester, createModal, createCourseModal, linkCourseModal, editCourse, deleteCourse, previewDoc, deleteDoc]);
 
   useEffect(() => {
     if (!previewDoc?.id || !canEmbedPreview(previewDoc.type || previewDoc.documentType)) {
@@ -348,6 +352,33 @@ function LibraryManagementPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function handleSearchSubjects() {
+    if (!linkSearchQuery.trim()) return;
+    try { setLinkSearching(true); setError('');
+      const results = await adminService.searchSubjects(linkSearchQuery.trim());
+      setLinkSearchResults(Array.isArray(results) ? results : []);
+    } catch (err) { setError(err.message); } finally { setLinkSearching(false); }
+  }
+
+  async function handleLinkSubject(subjectId) {
+    try { setIsSaving(true); setError('');
+      await adminService.linkSubjectToSemester(selectedSemester.id, subjectId);
+      await loadCourses(selectedSemester);
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
+      setLinkCourseModal(false);
+      setLinkSearchQuery('');
+      setLinkSearchResults([]);
+    } catch (err) { setError(err.message); } finally { setIsSaving(false); }
+  }
+
+  async function handleUnlinkSubject(subjectId) {
+    try { setIsSaving(true); setError('');
+      await adminService.unlinkSubjectFromSemester(selectedSemester.id, subjectId);
+      await loadCourses(selectedSemester);
+      await loadSemesters(selectedMajor ? selectedMajor.id : null);
+    } catch (err) { setError(err.message); } finally { setIsSaving(false); }
   }
 
   function openEditCourse(course) {
@@ -705,6 +736,18 @@ function LibraryManagementPage() {
           </div>
 
           <button
+            className="lib-outline-btn"
+            type="button"
+            onClick={() => { setLinkSearchQuery(''); setLinkSearchResults([]); setLinkCourseModal(true); }}
+            style={{ marginRight: 10 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Link Course
+          </button>
+          <button
             className="lib-create-btn"
             type="button"
             onClick={() => setCreateCourseModal(true)}
@@ -736,6 +779,11 @@ function LibraryManagementPage() {
                       <div>
                         <button className="lib-course-name" type="button" onClick={() => loadCourseDocuments(course)} style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', textAlign: 'left' }}>{course.name}</button>
                         <div className="lib-course-code" style={{ color: course.iconColor }}>{course.code}</div>
+                        {course.linkType === 'linked' && (
+                          <span style={{ display: 'inline-block', marginTop: 4, padding: '1px 8px', borderRadius: 10, fontSize: 11, background: '#fef3c7', color: '#92400e', fontWeight: 500 }}>
+                            shared
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -778,6 +826,15 @@ function LibraryManagementPage() {
                         <path d="M9 6V4h6v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </button>
+                    {course.linkType === 'linked' && (
+                      <button className="lib-icon-delete-btn" type="button" aria-label="Unlink course" title="Unlink from this semester" onClick={() => handleUnlinkSubject(course.id)} disabled={isSaving} style={{ marginLeft: 8, color: '#f59e0b' }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -924,6 +981,63 @@ function LibraryManagementPage() {
                   </svg>
                   {isSaving ? 'Creating...' : 'Create Course'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Link Course modal */}
+        {linkCourseModal && (
+          <div className="lib-modal-overlay" onClick={() => { setLinkCourseModal(false); setLinkSearchQuery(''); setLinkSearchResults([]); }}>
+            <div className="lib-modal-card lib-modal-edit" onClick={e => e.stopPropagation()}>
+              <h2 className="lib-modal-title">Link Existing Course</h2>
+              <p className="lib-modal-subtitle">Search and link an existing course to <strong>{selectedSemester.name}</strong>.</p>
+
+              <div className="lib-modal-divider" />
+
+              {error && <p className="lib-form-hint" style={{ color: '#dc2626' }}>{error}</p>}
+
+              <div className="lib-form-group" style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="lib-form-input"
+                  type="text"
+                  placeholder="Search course name or code..."
+                  value={linkSearchQuery}
+                  onChange={e => setLinkSearchQuery(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearchSubjects()}
+                  autoFocus
+                />
+                <button className="lib-create-btn" type="button" onClick={handleSearchSubjects} disabled={linkSearching}>
+                  {linkSearching ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+
+              {linkSearchResults.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <p className="lib-form-hint" style={{ marginBottom: 8 }}>{linkSearchResults.length} result(s)</p>
+                  <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                    {linkSearchResults.map(subject => (
+                      <div key={subject.id}
+                        style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                        onClick={() => handleLinkSubject(subject.id)}
+                        onMouseOver={e => e.currentTarget.style.background = '#f9fafb'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{subject.name}</div>
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>{subject.code} &middot; {subject.semesterName || 'No semester'}</div>
+                        </div>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 5v14M5 12h14" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="lib-modal-footer" style={{ marginTop: linkSearchResults.length > 0 ? 0 : 16 }}>
+                <button className="lib-modal-cancel-btn" type="button" onClick={() => { setLinkCourseModal(false); setLinkSearchQuery(''); setLinkSearchResults([]); }}>Cancel</button>
               </div>
             </div>
           </div>

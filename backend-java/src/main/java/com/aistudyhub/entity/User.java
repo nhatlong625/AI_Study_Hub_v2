@@ -32,6 +32,9 @@ public class User implements UserDetails {
     @Column(name = "role_id")
     private Integer roleId;
 
+    @Column(name = "major_id")
+    private Integer majorId;
+
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 

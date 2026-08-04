@@ -52,7 +52,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/register", "/api/auth/login", "/api/auth/forgot-password",
                                 "/api/auth/reset-password", "/api/auth/google").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/verify-email", "/api/admin/storage-settings/google/callback").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/verify-email", "/api/admin/storage-settings/google/callback", "/api/majors").permitAll()
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/payments/plans", "/api/payments/health").permitAll()

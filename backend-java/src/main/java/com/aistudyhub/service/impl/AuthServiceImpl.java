@@ -178,6 +178,8 @@ public class AuthServiceImpl implements AuthService {
                 .role(roleName)
                 .plan(planName)
                 .streakDays(streakDays)
+                .majorId(user.getMajorId())
+                .majorName(resolveMajorName(user.getMajorId()))
                 .build();
     }
 
@@ -287,7 +289,23 @@ public class AuthServiceImpl implements AuthService {
                 .role(roleName)
                 .plan(planName)
                 .streakDays(streakDays)
+                .majorId(user.getMajorId())
+                .majorName(resolveMajorName(user.getMajorId()))
                 .build();
+    }
+
+    private String resolveMajorName(Integer majorId) {
+        if (majorId == null) return null;
+        try {
+            List<String> list = jdbcTemplate.query(
+                    "SELECT major_name FROM MAJOR WHERE major_id = ?",
+                    (rs, rowNum) -> rs.getString("major_name"),
+                    majorId
+            );
+            return list.isEmpty() ? null : list.get(0);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── Insert Basic Subscription ─────────────────────────────────────────────

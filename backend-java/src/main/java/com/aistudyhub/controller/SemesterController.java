@@ -14,7 +14,10 @@ public class SemesterController {
     private final SemesterService semesterService;
 
     @GetMapping
-    public ResponseEntity<List<SemesterResponse>> getAll() {
+    public ResponseEntity<List<SemesterResponse>> getAll(@RequestParam(required = false) Integer majorId) {
+        if (majorId != null && majorId > 0) {
+            return ResponseEntity.ok(semesterService.getSemestersByMajor(majorId));
+        }
         return ResponseEntity.ok(semesterService.getAllSemesters());
     }
 }

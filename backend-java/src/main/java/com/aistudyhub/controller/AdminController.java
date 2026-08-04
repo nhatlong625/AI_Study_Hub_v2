@@ -332,7 +332,7 @@ public class AdminController {
                    COUNT(DISTINCT d.document_id) AS docs
             FROM dbo.MAJOR m
             LEFT JOIN dbo.SEMESTER s ON s.major_id = m.major_id
-            LEFT JOIN dbo.SUBJECT sub ON sub.semester_id = s.semester_id
+            LEFT JOIN (SELECT subject_id, semester_id FROM dbo.SUBJECT UNION SELECT subject_id, semester_id FROM dbo.SEMESTER_SUBJECT) sub ON sub.semester_id = s.semester_id
             LEFT JOIN dbo.DOCUMENT d ON d.subject_id = sub.subject_id
             GROUP BY m.major_id, m.major_name, m.description, m.created_at, m.updated_at
             ORDER BY m.major_id DESC
@@ -414,7 +414,7 @@ public class AdminController {
                    COUNT(DISTINCT sub.subject_id) AS subjects,
                    COUNT(DISTINCT d.document_id) AS docs
             FROM dbo.SEMESTER s
-            LEFT JOIN dbo.SUBJECT sub ON sub.semester_id = s.semester_id
+            LEFT JOIN (SELECT subject_id, semester_id FROM dbo.SUBJECT UNION SELECT subject_id, semester_id FROM dbo.SEMESTER_SUBJECT) sub ON sub.semester_id = s.semester_id
             LEFT JOIN dbo.DOCUMENT d ON d.subject_id = sub.subject_id
             WHERE s.major_id = :majorId
             GROUP BY s.semester_id, s.semester_name, s.created_at, s.updated_at
@@ -433,7 +433,7 @@ public class AdminController {
                    CONCAT(CAST(COALESCE(SUM(CAST(d.document_size AS DECIMAL(18,2))) / 1048576, 0) AS DECIMAL(10,1)), ' MB') AS storage,
                    COUNT(DISTINCT sub.subject_id) AS courses, COUNT(DISTINCT d.document_id) AS docs
             FROM dbo.SEMESTER s
-            LEFT JOIN dbo.SUBJECT sub ON sub.semester_id = s.semester_id
+            LEFT JOIN (SELECT subject_id, semester_id FROM dbo.SUBJECT UNION SELECT subject_id, semester_id FROM dbo.SEMESTER_SUBJECT) sub ON sub.semester_id = s.semester_id
             LEFT JOIN dbo.DOCUMENT d ON d.subject_id = sub.subject_id
             GROUP BY s.semester_id, s.semester_name, s.created_at, s.updated_at
             ORDER BY s.semester_id DESC
@@ -455,53 +455,88 @@ public class AdminController {
 
     @DeleteMapping("/library/semesters/{id}")
     public ResponseEntity<Void> deleteSemester(@PathVariable Integer id) {
-        String sql = """
-            BEGIN TRAN;
+        // Bước 1: Chuyển "nhà" cho các subject dùng chung (có link phụ sang semester khác)
+        String transferSql = """
+            UPDATE sub
+            SET sub.semester_id = (
+                SELECT TOP 1 ss2.semester_id
+                FROM dbo.SEMESTER_SUBJECT ss2
+                WHERE ss2.subject_id = sub.subject_id AND ss2.semester_id != :id
+            )
+            FROM dbo.SUBJECT sub
+            WHERE sub.semester_id = :id
+              AND EXISTS (
+                  SELECT 1 FROM dbo.SEMESTER_SUBJECT ss
+                  WHERE ss.subject_id = sub.subject_id AND ss.semester_id != :id
+              )
+            """;
+        jdbc.update(transferSql, Map.of("id", id));
+
+        // Xóa link phụ của các subject vừa được chuyển "nhà"
+        jdbc.update("""
+            DELETE FROM dbo.SEMESTER_SUBJECT
+            WHERE semester_id = :id
+              AND subject_id IN (
+                  SELECT subject_id FROM dbo.SUBJECT WHERE semester_id != :id
+              )
+            """, Map.of("id", id));
+
+        // Bước 2: Xóa toàn bộ link phụ còn lại
+        jdbc.update("DELETE FROM dbo.SEMESTER_SUBJECT WHERE semester_id = :id", Map.of("id", id));
+
+        // Bước 3: Cascade delete các subject chỉ còn "nhà" ở semester này
+        String cascadeSql = """
+            BEGIN TRAN
             BEGIN TRY
-                SELECT subject_id INTO #TempSubjects FROM dbo.SUBJECT WHERE semester_id = :id;
+                SELECT s.subject_id INTO #TempSubjects
+                FROM dbo.SUBJECT s
+                WHERE s.semester_id = :id
+                  AND NOT EXISTS (
+                      SELECT 1 FROM dbo.SEMESTER_SUBJECT ss WHERE ss.subject_id = s.subject_id
+                  );
+
                 SELECT document_id INTO #TempDocs FROM dbo.DOCUMENT WHERE subject_id IN (SELECT subject_id FROM #TempSubjects);
                 SELECT question_id INTO #TempQuestions FROM dbo.AI_QUESTION WHERE document_id IN (SELECT document_id FROM #TempDocs);
                 SELECT quiz_id INTO #TempQuizzes FROM dbo.QUIZ_TEST WHERE question_id IN (SELECT question_id FROM #TempQuestions);
-                
+
                 DELETE FROM dbo.USER_ANSWER WHERE attempt_id IN (SELECT attempt_id FROM dbo.TEST_ATTEMPT WHERE test_id IN (SELECT quiz_id FROM #TempQuizzes) OR question_id IN (SELECT question_id FROM #TempQuestions));
                 DELETE FROM dbo.TEST_RESULT WHERE attempt_id IN (SELECT attempt_id FROM dbo.TEST_ATTEMPT WHERE test_id IN (SELECT quiz_id FROM #TempQuizzes) OR question_id IN (SELECT question_id FROM #TempQuestions));
                 DELETE FROM dbo.TEST_ATTEMPT WHERE test_id IN (SELECT quiz_id FROM #TempQuizzes) OR question_id IN (SELECT question_id FROM #TempQuestions);
                 DELETE FROM dbo.ANSWER_OPTION WHERE question_id IN (SELECT quiz_id FROM #TempQuizzes);
                 DELETE FROM dbo.QUIZ_TEST WHERE quiz_id IN (SELECT quiz_id FROM #TempQuizzes);
                 DELETE FROM dbo.AI_QUESTION WHERE question_id IN (SELECT question_id FROM #TempQuestions);
-                
+
                 DELETE FROM dbo.STUDY_ACTIVITY WHERE document_id IN (SELECT document_id FROM #TempDocs);
                 DELETE FROM dbo.COMMENT WHERE document_id IN (SELECT document_id FROM #TempDocs);
                 DELETE FROM dbo.REPORT WHERE document_id IN (SELECT document_id FROM #TempDocs);
                 DELETE FROM dbo.AI_SUMMARY WHERE document_id IN (SELECT document_id FROM #TempDocs);
-                
+
                 DELETE FROM dbo.CHAT_MESSAGE WHERE session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id IN (SELECT document_id FROM #TempDocs));
                 DELETE FROM dbo.CHAT_SESSION WHERE document_id IN (SELECT document_id FROM #TempDocs);
-                
+
                 DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (SELECT document_id FROM #TempDocs) OR subject_id IN (SELECT subject_id FROM #TempSubjects) OR semester_id = :id;
-                
+
                 DELETE FROM dbo.DOCUMENT_SHARE WHERE document_id IN (SELECT document_id FROM #TempDocs);
                 DELETE FROM dbo.DOCUMENT WHERE subject_id IN (SELECT subject_id FROM #TempSubjects);
-                
+
                 DELETE FROM dbo.USER_SUBJECT WHERE subject_id IN (SELECT subject_id FROM #TempSubjects);
                 DELETE FROM dbo.SUBJECT WHERE semester_id = :id;
-                
+
                 DELETE FROM dbo.SEMESTER WHERE semester_id = :id;
-                
+
                 DROP TABLE #TempSubjects;
                 DROP TABLE #TempDocs;
                 DROP TABLE #TempQuestions;
                 DROP TABLE #TempQuizzes;
-                
-                COMMIT TRAN;
+
+                COMMIT TRAN
             END TRY
             BEGIN CATCH
-                IF @@TRANCOUNT > 0
-                    ROLLBACK TRAN;
-                THROW;
+                IF @@TRANCOUNT > 0 ROLLBACK TRAN
+                THROW
             END CATCH
             """;
-        jdbc.update(sql, Map.of("id", id));
+        jdbc.update(cascadeSql, Map.of("id", id));
         return ResponseEntity.noContent().build();
     }
 
@@ -511,11 +546,16 @@ public class AdminController {
             SELECT sub.subject_id AS id, sub.subject_name AS name, COALESCE(NULLIF(sub.subject_code, ''), CONCAT('SUB-', sub.subject_id)) AS code,
                    COALESCE(sub.description, '') AS instructor, COUNT(d.document_id) AS docs,
                    COALESCE(CONVERT(NVARCHAR(19), sub.updated_at, 120), CONVERT(NVARCHAR(19), sub.created_at, 120)) AS updated,
-                   'Active' AS status, 'book' AS icon, '#d1fae5' AS color, '#059669' AS iconColor
+                   'Active' AS status, 'book' AS icon, '#d1fae5' AS color, '#059669' AS iconColor,
+                   CASE WHEN sub.semester_id = :id THEN 'home' ELSE 'linked' END AS linkType
             FROM dbo.SUBJECT sub
             LEFT JOIN dbo.DOCUMENT d ON d.subject_id = sub.subject_id
-            WHERE sub.semester_id = :id
-            GROUP BY sub.subject_id, sub.subject_name, sub.subject_code, sub.description, sub.created_at, sub.updated_at
+            WHERE sub.subject_id IN (
+                SELECT subject_id FROM dbo.SUBJECT WHERE semester_id = :id
+                UNION
+                SELECT subject_id FROM dbo.SEMESTER_SUBJECT WHERE semester_id = :id
+            )
+            GROUP BY sub.subject_id, sub.subject_name, sub.subject_code, sub.description, sub.created_at, sub.updated_at, sub.semester_id
             ORDER BY sub.subject_id DESC
             """, Map.of("id", id));
     }
@@ -528,6 +568,40 @@ public class AdminController {
             VALUES (:semesterId, :name, :code, :description, GETDATE(), NULL)
             """, params("semesterId", id).addValue("name", required(body, "name")).addValue("code", str(body, "code", "")).addValue("description", str(body, "instructor", "")), Integer.class);
         return ResponseEntity.status(HttpStatus.CREATED).body(courseById(courseId));
+    }
+
+    /** Tìm kiếm môn học để link — trả về tất cả subject (có thể lọc query ?q=...) */
+    @GetMapping("/library/subjects/search")
+    public List<Map<String, Object>> searchSubjects(@RequestParam(defaultValue = "") String q) {
+        String sql = """
+            SELECT sub.subject_id AS id, sub.subject_name AS name, COALESCE(NULLIF(sub.subject_code, ''), CONCAT('SUB-', sub.subject_id)) AS code,
+                   COALESCE(sub.description, '') AS instructor, s.semester_name AS semesterName
+            FROM dbo.SUBJECT sub
+            LEFT JOIN dbo.SEMESTER s ON s.semester_id = sub.semester_id
+            """;
+        if (q != null && !q.isBlank()) {
+            sql += " WHERE LOWER(sub.subject_name) LIKE LOWER(:q) OR LOWER(COALESCE(sub.subject_code, '')) LIKE LOWER(:q)";
+        }
+        sql += " ORDER BY sub.subject_name";
+        return jdbc.queryForList(sql, q != null && !q.isBlank() ? Map.of("q", "%" + q.trim() + "%") : Map.of());
+    }
+
+    /** Gán môn học có sẵn vào semester hiện tại (link phụ) */
+    @PostMapping("/library/semesters/{semesterId}/link-subject/{subjectId}")
+    public ResponseEntity<Map<String, Object>> linkSubject(@PathVariable Integer semesterId, @PathVariable Integer subjectId) {
+        jdbc.update("""
+            INSERT INTO dbo.SEMESTER_SUBJECT (semester_id, subject_id) VALUES (:semesterId, :subjectId)
+            """, Map.of("semesterId", semesterId, "subjectId", subjectId));
+        return ResponseEntity.ok(courseById(subjectId));
+    }
+
+    /** Gỡ link phụ — xóa môn khỏi semester hiện tại (giữ nguyên subject gốc) */
+    @DeleteMapping("/library/semesters/{semesterId}/link-subject/{subjectId}")
+    public ResponseEntity<Void> unlinkSubject(@PathVariable Integer semesterId, @PathVariable Integer subjectId) {
+        jdbc.update("""
+            DELETE FROM dbo.SEMESTER_SUBJECT WHERE semester_id = :semesterId AND subject_id = :subjectId
+            """, Map.of("semesterId", semesterId, "subjectId", subjectId));
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/library/courses/{id}")
@@ -570,6 +644,7 @@ public class AdminController {
             jdbc.update("DELETE FROM dbo.DOCUMENT WHERE subject_id = :id", p);
         }
 
+        jdbc.update("DELETE FROM dbo.SEMESTER_SUBJECT WHERE subject_id = :id", p);
         jdbc.update("DELETE FROM dbo.USER_SUBJECT WHERE subject_id = :id", p);
         jdbc.update("DELETE FROM dbo.AI_SUGGESTION WHERE subject_id = :id", p);
 
@@ -947,7 +1022,7 @@ public class AdminController {
                    CONCAT(CAST(COALESCE(SUM(CAST(d.document_size AS DECIMAL(18,2))) / 1048576, 0) AS DECIMAL(10,1)), ' MB') AS storage,
                    COUNT(DISTINCT sub.subject_id) AS courses, COUNT(DISTINCT d.document_id) AS docs
             FROM dbo.SEMESTER s
-            LEFT JOIN dbo.SUBJECT sub ON sub.semester_id = s.semester_id
+            LEFT JOIN (SELECT subject_id, semester_id FROM dbo.SUBJECT UNION SELECT subject_id, semester_id FROM dbo.SEMESTER_SUBJECT) sub ON sub.semester_id = s.semester_id
             LEFT JOIN dbo.DOCUMENT d ON d.subject_id = sub.subject_id
             WHERE s.semester_id = :id
             GROUP BY s.semester_id, s.semester_name, s.created_at, s.updated_at

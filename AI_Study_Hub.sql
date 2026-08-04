@@ -107,6 +107,7 @@ BEGIN
         created_at    DATETIME NOT NULL CONSTRAINT DF_USER_created_at DEFAULT GETDATE(),
         updated_at    DATETIME NULL,
         last_login    DATETIME NULL,
+        major_id      INT NULL,
         CONSTRAINT PK_USER PRIMARY KEY (user_id),
         CONSTRAINT UQ_USER_email UNIQUE (email)
     );
@@ -229,6 +230,19 @@ BEGIN
         added_at        DATETIME2 NOT NULL CONSTRAINT DF_USER_SUBJECT_added_at DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_USER_SUBJECT PRIMARY KEY (user_subject_id),
         CONSTRAINT UQ_USER_SUBJECT_USER_SUBJECT UNIQUE (user_id, subject_id)
+    );
+END
+GO
+
+IF OBJECT_ID(N'dbo.SEMESTER_SUBJECT', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SEMESTER_SUBJECT
+    (
+        semester_id INT NOT NULL,
+        subject_id  INT NOT NULL,
+        CONSTRAINT PK_SEMESTER_SUBJECT PRIMARY KEY (semester_id, subject_id),
+        CONSTRAINT FK_SEMESTER_SUBJECT_SEMESTER FOREIGN KEY (semester_id) REFERENCES dbo.SEMESTER(semester_id),
+        CONSTRAINT FK_SEMESTER_SUBJECT_SUBJECT FOREIGN KEY (subject_id) REFERENCES dbo.SUBJECT(subject_id)
     );
 END
 GO
@@ -726,6 +740,14 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_USER_ROLE')
     ALTER TABLE dbo.[USER] ADD CONSTRAINT FK_USER_ROLE FOREIGN KEY (role_id) REFERENCES dbo.ROLE(role_id);
+GO
+
+IF COL_LENGTH('dbo.[USER]', 'major_id') IS NULL
+    ALTER TABLE dbo.[USER] ADD major_id INT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_USER_MAJOR')
+    ALTER TABLE dbo.[USER] ADD CONSTRAINT FK_USER_MAJOR FOREIGN KEY (major_id) REFERENCES dbo.MAJOR(major_id);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_USER_SUBSCRIPTION_USER')
