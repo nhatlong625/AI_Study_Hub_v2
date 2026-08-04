@@ -9,7 +9,7 @@ const ICON_MAP = {
 };
 
 const EMPTY_FORM = { name: '' };
-const EMPTY_COURSE_FORM = { name: '', code: '', instructor: '', status: 'Active' };
+const EMPTY_COURSE_FORM = { name: '', code: '', instructor: '', description: '', status: 'Active' };
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/$/, '');
 
 function formatDocumentSize(bytes) {
@@ -77,6 +77,7 @@ function LibraryManagementPage() {
   const [linkSearchQuery, setLinkSearchQuery] = useState('');
   const [linkSearchResults, setLinkSearchResults] = useState([]);
   const [linkSearching, setLinkSearching] = useState(false);
+  const [linkHasSearched, setLinkHasSearched] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewError, setPreviewError] = useState('');
   const [deleteDoc, setDeleteDoc] = useState(null);
@@ -89,6 +90,7 @@ function LibraryManagementPage() {
   const [majorForm, setMajorForm] = useState({ name: '', description: '' });
   const [deleteMajor, setDeleteMajor] = useState(null);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const menuRef = useRef(null);
 
   const filtered = librarySemesters
@@ -359,7 +361,14 @@ function LibraryManagementPage() {
     try { setLinkSearching(true); setError('');
       const results = await adminService.searchSubjects(linkSearchQuery.trim());
       setLinkSearchResults(Array.isArray(results) ? results : []);
+      setLinkHasSearched(true);
     } catch (err) { setError(err.message); } finally { setLinkSearching(false); }
+  }
+
+  function showSuccess(message) {
+    setSuccessMessage(message);
+    // auto-clear after 3 seconds
+    setTimeout(() => setSuccessMessage(''), 3000);
   }
 
   async function handleLinkSubject(subjectId) {
@@ -370,12 +379,15 @@ function LibraryManagementPage() {
       setLinkCourseModal(false);
       setLinkSearchQuery('');
       setLinkSearchResults([]);
+      setLinkHasSearched(false);
+      showSuccess('Subject linked successfully');
     } catch (err) { setError(err.message); } finally { setIsSaving(false); }
   }
 
   async function handleUnlinkSubject(subjectId) {
     try { setIsSaving(true); setError('');
       await adminService.unlinkSubjectFromSemester(selectedSemester.id, subjectId);
+      showSuccess('Subject unlinked successfully');
       await loadCourses(selectedSemester);
       await loadSemesters(selectedMajor ? selectedMajor.id : null);
     } catch (err) { setError(err.message); } finally { setIsSaving(false); }
@@ -388,6 +400,7 @@ function LibraryManagementPage() {
       name: course.name || '',
       code: course.code || '',
       instructor: course.instructor || '',
+      description: course.description || '',
       status: course.status || 'Active',
     });
   }
@@ -720,6 +733,12 @@ function LibraryManagementPage() {
           <p className="lib-subtitle">Manage and review all courses for the current academic term.</p>
         </div>
 
+        {successMessage && (
+          <div style={{ margin: '12px 0', padding: '12px 16px', borderRadius: 8, background: '#ecfdf5', border: '1px solid #34d399', color: '#047857', fontSize: 13, fontWeight: 500 }}>
+            {successMessage}
+          </div>
+        )}
+
         {/* Stat card + Create Course on same row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="lib-courses-stat-card">
@@ -738,7 +757,7 @@ function LibraryManagementPage() {
           <button
             className="lib-outline-btn"
             type="button"
-            onClick={() => { setLinkSearchQuery(''); setLinkSearchResults([]); setLinkCourseModal(true); }}
+            onClick={() => { setLinkSearchQuery(''); setLinkSearchResults([]); setLinkHasSearched(false); setLinkCourseModal(true); }}
             style={{ marginRight: 10 }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -953,7 +972,13 @@ function LibraryManagementPage() {
 
               <div className="lib-form-group">
                 <label className="lib-form-label">Description (Optional)</label>
-                <textarea className="lib-form-textarea" rows={3} placeholder="Brief description of the course..." />
+                <textarea
+                  className="lib-form-textarea"
+                  rows={3}
+                  placeholder="Brief description of the course..."
+                  value={createCourseForm.description}
+                  onChange={e => setCreateCourseForm(form => ({ ...form, description: e.target.value }))}
+                />
               </div>
 
               <div className="lib-form-group">
@@ -988,7 +1013,7 @@ function LibraryManagementPage() {
 
         {/* Link Course modal */}
         {linkCourseModal && (
-          <div className="lib-modal-overlay" onClick={() => { setLinkCourseModal(false); setLinkSearchQuery(''); setLinkSearchResults([]); }}>
+          <div className="lib-modal-overlay" onClick={() => { setLinkCourseModal(false); setLinkSearchQuery(''); setLinkSearchResults([]); setLinkHasSearched(false); }}>
             <div className="lib-modal-card lib-modal-edit" onClick={e => e.stopPropagation()}>
               <h2 className="lib-modal-title">Link Existing Course</h2>
               <p className="lib-modal-subtitle">Search and link an existing course to <strong>{selectedSemester.name}</strong>.</p>
@@ -1003,7 +1028,7 @@ function LibraryManagementPage() {
                   type="text"
                   placeholder="Search course name or code..."
                   value={linkSearchQuery}
-                  onChange={e => setLinkSearchQuery(e.target.value)}
+                  onChange={e => { setLinkSearchQuery(e.target.value); setLinkHasSearched(false); }}
                   onKeyDown={e => e.key === 'Enter' && handleSearchSubjects()}
                   autoFocus
                 />
@@ -1011,6 +1036,19 @@ function LibraryManagementPage() {
                   {linkSearching ? 'Searching...' : 'Search'}
                 </button>
               </div>
+
+              {linkSearching && (
+                <div style={{ marginTop: 12, padding: '16px', textAlign: 'center', color: '#6b7280', fontSize: 13 }}>
+                  <span className="lib-spinner" style={{ display: 'inline-block', width: 18, height: 18, border: '2px solid #e5e7eb', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: 8, verticalAlign: 'middle' }} />
+                  Searching...
+                </div>
+              )}
+
+              {!linkSearching && linkHasSearched && linkSearchResults.length === 0 && (
+                <div style={{ marginTop: 12, padding: '16px', textAlign: 'center', borderRadius: 8, border: '1px solid #e5e7eb', color: '#6b7280', fontSize: 13 }}>
+                  No subjects found matching &lsquo;{linkSearchQuery}&rsquo;
+                </div>
+              )}
 
               {linkSearchResults.length > 0 && (
                 <div style={{ marginTop: 12 }}>
@@ -1037,7 +1075,7 @@ function LibraryManagementPage() {
               )}
 
               <div className="lib-modal-footer" style={{ marginTop: linkSearchResults.length > 0 ? 0 : 16 }}>
-                <button className="lib-modal-cancel-btn" type="button" onClick={() => { setLinkCourseModal(false); setLinkSearchQuery(''); setLinkSearchResults([]); }}>Cancel</button>
+                <button className="lib-modal-cancel-btn" type="button" onClick={() => { setLinkCourseModal(false); setLinkSearchQuery(''); setLinkSearchResults([]); setLinkHasSearched(false); }}>Cancel</button>
               </div>
             </div>
           </div>
@@ -1074,12 +1112,23 @@ function LibraryManagementPage() {
               </div>
 
               <div className="lib-form-group">
-                <label className="lib-form-label">Instructor / Description</label>
+                <label className="lib-form-label">Instructor</label>
                 <input
                   className="lib-form-input"
                   type="text"
                   value={editCourseForm.instructor}
                   onChange={e => setEditCourseForm(form => ({ ...form, instructor: e.target.value }))}
+                />
+              </div>
+
+              <div className="lib-form-group">
+                <label className="lib-form-label">Description (Optional)</label>
+                <textarea
+                  className="lib-form-textarea"
+                  rows={3}
+                  placeholder="Brief description of the course..."
+                  value={editCourseForm.description}
+                  onChange={e => setEditCourseForm(form => ({ ...form, description: e.target.value }))}
                 />
               </div>
 
@@ -1136,6 +1185,12 @@ function LibraryManagementPage() {
             <h1 className="lib-title">Library Management</h1>
             <p className="lib-subtitle">Manage semesters, course folders, user libraries, uploaded documents, and storage usage across the platform.</p>
           </div>
+
+          {successMessage && (
+            <div style={{ margin: '12px 0', padding: '12px 16px', borderRadius: 8, background: '#ecfdf5', border: '1px solid #34d399', color: '#047857', fontSize: 13, fontWeight: 500 }}>
+              {successMessage}
+            </div>
+          )}
 
           {/* Stat Cards */}
           <div className="lib-stats-row">
