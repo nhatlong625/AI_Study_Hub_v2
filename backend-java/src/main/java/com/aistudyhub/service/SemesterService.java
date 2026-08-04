@@ -43,14 +43,24 @@ public class SemesterService {
         Map<Integer, List<Integer>> linkedIds = loadLinkedSubjectIds();
         Map<Integer, Subject> allSubjects = subjectRepository.findAll().stream()
                 .collect(Collectors.toMap(Subject::getSubjectId, s -> s, (a, b) -> a));
-        Set<Integer> existingIds = subjectsBySemester.values().stream()
-                .flatMap(List::stream).map(Subject::getSubjectId).collect(Collectors.toSet());
         linkedIds.forEach((semId, subIds) -> {
             List<Subject> existing = subjectsBySemester.computeIfAbsent(semId, k -> new ArrayList<>());
-            subIds.stream().filter(id -> !existingIds.contains(id))
+            // Existing IDs must be computed per-semester, not as a union across all semesters.
+            // Otherwise every shared subject already has a home semester, so its ID is always
+            // present in the global set and the filter below would never match.
+            Set<Integer> existingSemesterIds = existing.stream()
+                    .map(Subject::getSubjectId)
+                    .collect(Collectors.toSet());
+            subIds.stream().filter(id -> !existingSemesterIds.contains(id))
                   .map(allSubjects::get).filter(s -> s != null)
                   .forEach(existing::add);
         });
+    }
+
+    /** Xóa cache để các thay đổi (link/unlink subject, create/update/delete course, delete semester) hiển thị ngay */
+    public void clearCache() {
+        this.cachedSemesters = null;
+        this.lastCacheTime = 0;
     }
 
     public List<SemesterResponse> getAllSemesters() {
