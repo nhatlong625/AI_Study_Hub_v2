@@ -14,8 +14,8 @@ public class ShareWithUserRequest {
     @Pattern(regexp = "VIEW|EDIT", message = "Permission must be VIEW or EDIT")
     private String permission;
 
-    // TODO: thay bằng userId từ auth context khi có JWT
-    private Integer ownerUserId = 1;
+    // Không nhận từ request body: DocumentController ghi đè bằng currentUser.id().
+    private Integer ownerUserId;
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

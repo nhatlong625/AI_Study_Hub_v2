@@ -161,6 +161,22 @@ public class DatabaseSchemaGuard {
                     ALTER TABLE dbo.USER_SUBSCRIPTION ADD version_id INT NULL
                 """);
 
+        // Thời gian đọc tài liệu — nguồn cho Study Time, feed Recent Activity và tiến độ
+        // "đã học" của từng môn. Không dùng STUDY_ACTIVITY vì bảng đó bắt buộc
+        // summary_id/session_id/question_id NOT NULL cùng lúc, không biểu diễn được
+        // hành vi "chỉ đọc tài liệu".
+        run("DOCUMENT_READING", """
+                IF OBJECT_ID(N'dbo.DOCUMENT_READING', N'U') IS NULL
+                    CREATE TABLE dbo.DOCUMENT_READING
+                    (
+                        user_id      INT NOT NULL,
+                        document_id  INT NOT NULL,
+                        read_seconds INT NOT NULL CONSTRAINT DF_DOCUMENT_READING_seconds DEFAULT 0,
+                        last_read_at DATETIME2 NOT NULL,
+                        CONSTRAINT PK_DOCUMENT_READING PRIMARY KEY (user_id, document_id)
+                    )
+                """);
+
         run("PUBLIC_REVIEW_LOG table", """
                 IF OBJECT_ID(N'dbo.PUBLIC_REVIEW_LOG', N'U') IS NULL
                 BEGIN

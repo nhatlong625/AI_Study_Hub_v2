@@ -145,6 +145,7 @@ export default function RegisterPage() {
         userId: data.userId,
         email: data.email,
         fullName: data.fullName,
+        avatarUrl: data.avatarUrl || null,
         role: normalizeRole(data.role),
         plan: data.plan || "Basic",
         streakDays: data.streakDays || 0,

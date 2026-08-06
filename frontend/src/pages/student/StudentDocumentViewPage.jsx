@@ -129,6 +129,50 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareToken } = {}
       });
     }
   }, [doc?.documentId, doc?.title, doc?.documentName, historyCtx]);
+
+  // Đo thời gian thực sự đọc tài liệu, dùng cho tiến độ "Courses In Progress".
+  // Chỉ cộng khi tab đang hiển thị: mở tài liệu rồi chuyển sang tab khác không phải là đọc.
+  useEffect(() => {
+    const id = doc?.documentId;
+    if (!id || _sharedDoc) return undefined;
+
+    const FLUSH_MS = 15000;
+    let pendingSeconds = 0;
+    let lastTickAt = Date.now();
+
+    const accumulate = () => {
+      const now = Date.now();
+      if (document.visibilityState === "visible") {
+        pendingSeconds += Math.round((now - lastTickAt) / 1000);
+      }
+      lastTickAt = now;
+    };
+
+    const flush = () => {
+      accumulate();
+      if (pendingSeconds <= 0) return;
+      documentApi.reportReading(id, pendingSeconds);
+      pendingSeconds = 0;
+    };
+
+    const timer = setInterval(flush, FLUSH_MS);
+    const onVisibilityChange = () => {
+      // Gửi nốt phần đã đọc trước khi rời tab, rồi mốc lại để quãng ẩn không bị tính.
+      if (document.visibilityState === "hidden") flush();
+      else lastTickAt = Date.now();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flush);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [doc?.documentId, _sharedDoc]);
+
   const [docLoading, setDocLoading] = useState(
     !_sharedDoc && !location.state?.doc,
   );

@@ -27,7 +27,7 @@ public class PracticeTestController {
     private final NamedParameterJdbcTemplate jdbc;
 
     @GetMapping
-    public List<Map<String, Object>> list(@RequestParam(defaultValue = "1") Integer userId) {
+    public List<Map<String, Object>> list() {
         return practiceTestService.list(currentUser.id());
     }
 
@@ -37,9 +37,16 @@ public class PracticeTestController {
         return practiceTestService.get(id);
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Integer id) {
+        requireTestOwner(id);
+        practiceTestService.delete(id);
+    }
+
     /** Lấy quiz đang làm dở — dùng cho "Continue Learning" section */
     @GetMapping("/in-progress")
-    public List<Map<String, Object>> getInProgress(@RequestParam(defaultValue = "1") Integer userId) {
+    public List<Map<String, Object>> getInProgress() {
         return practiceTestService.getInProgress(currentUser.id());
     }
 

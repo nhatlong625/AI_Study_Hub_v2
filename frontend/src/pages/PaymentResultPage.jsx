@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:8080/api"
-).replace(/\/$/, "");
+import { API_BASE_URL } from "../config/api";
 
 export default function PaymentResultPage() {
   const [params] = useSearchParams();

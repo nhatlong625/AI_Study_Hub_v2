@@ -11,16 +11,6 @@ function normalizeEmail(value) {
     .toLowerCase();
 }
 
-function getCurrentUserId(fallback) {
-  if (fallback) return fallback;
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    return user.userId || user.id || 1;
-  } catch {
-    return 1;
-  }
-}
-
 function Avatar({ name, email }) {
   const str = name || email || "?";
   const initials = str
@@ -47,7 +37,7 @@ function Avatar({ name, email }) {
   );
 }
 
-export default function ShareDocumentModal({ doc, userId, onClose }) {
+export default function ShareDocumentModal({ doc, onClose }) {
   const [inputValue, setInputValue] = useState("");
   const [pendingEmails, setPendingEmails] = useState([]);
   const [permission, setPermission] = useState("VIEW");
@@ -139,12 +129,7 @@ export default function ShareDocumentModal({ doc, userId, onClose }) {
     for (const email of emails) {
       try {
         added.push(
-          await documentApi.shareWithUser(
-            doc.documentId,
-            email,
-            permission,
-            getCurrentUserId(userId),
-          ),
+          await documentApi.shareWithUser(doc.documentId, email, permission),
         );
       } catch (err) {
         failed.push({ email, message: err.message || "could not be shared" });

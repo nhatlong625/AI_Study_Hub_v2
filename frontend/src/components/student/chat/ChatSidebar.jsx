@@ -4,7 +4,17 @@ import { NavLink, useLocation } from 'react-router-dom';
 function ChatSidebar({ threads, citedSources, onSourceClick, onNewChat, onThreadSelect, onDeleteThread, recentError, variant = 'sources', showCourseFolders = false, courseFolder }) {
   const [expandedFolders, setExpandedFolders] = useState({ SWR: true });
   const [openThreadMenuId, setOpenThreadMenuId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
+
+  // Lọc theo tiêu đề session — tiêu đề vốn là 80 ký tự đầu của câu hỏi đầu tiên
+  // (ChatService.createTitle) nên tìm theo nó bắt được phần lớn ý định tìm kiếm.
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visibleThreads = !threads
+    ? threads
+    : normalizedQuery
+      ? threads.filter(thread => String(thread.title || '').toLowerCase().includes(normalizedQuery))
+      : threads;
   const folderName = courseFolder?.name || 'SWR';
   const folderFiles = courseFolder?.files || [];
   const sourceLabel = (source) => (
@@ -65,10 +75,12 @@ function ChatSidebar({ threads, citedSources, onSourceClick, onNewChat, onThread
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input 
-            type="text" 
-            placeholder="Search chats" 
-            style={{ 
+          <input
+            type="text"
+            placeholder="Search chats"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            style={{
               width: '100%', 
               background: '#f3f2fb', 
               border: 'none', 
@@ -172,7 +184,11 @@ function ChatSidebar({ threads, citedSources, onSourceClick, onNewChat, onThread
             <div style={{ color: '#dc2626', fontSize: '12px', lineHeight: 1.45, padding: '8px 4px' }}>
               Cannot load recent chats from backend.
             </div>
-          ) : threads && threads.length > 0 ? threads.map((thread, idx) => {
+          ) : normalizedQuery && visibleThreads && visibleThreads.length === 0 ? (
+            <div style={{ color: '#888', fontSize: '12px', lineHeight: 1.45, padding: '8px 4px' }}>
+              No chats match "{searchQuery.trim()}".
+            </div>
+          ) : visibleThreads && visibleThreads.length > 0 ? visibleThreads.map((thread, idx) => {
             const threadMenuId = thread.id || `thread-${idx}`;
             const isThreadMenuOpen = openThreadMenuId === threadMenuId;
             const threadPath = thread.href || `/student/ai-tutor/chat/${thread.id}`;

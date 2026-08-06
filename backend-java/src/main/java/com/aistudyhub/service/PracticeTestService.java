@@ -65,6 +65,48 @@ public class PracticeTestService {
     }
 
     /**
+     * Xoá hẳn một bộ đề cùng toàn bộ dấu vết của nó.
+     *
+     * <p>Thứ tự xoá đi từ bảng con lên bảng cha để không vướng khoá ngoại:
+     * USER_ANSWER → TEST_RESULT → TEST_ATTEMPT → ANSWER_OPTION → QUIZ_TEST → AI_QUESTION.
+     */
+    @Transactional
+    public void delete(Integer testId) {
+        Map<String, Object> parameter = Map.of("testId", testId);
+
+        jdbc.update("""
+            DELETE FROM dbo.USER_ANSWER
+            WHERE attempt_id IN (
+                SELECT attempt_id FROM dbo.TEST_ATTEMPT WHERE question_id = :testId
+            )
+            """, parameter);
+        jdbc.update("""
+            DELETE FROM dbo.TEST_RESULT
+            WHERE attempt_id IN (
+                SELECT attempt_id FROM dbo.TEST_ATTEMPT WHERE question_id = :testId
+            )
+            """, parameter);
+        jdbc.update("""
+            DELETE FROM dbo.TEST_ATTEMPT
+            WHERE question_id = :testId
+            """, parameter);
+        jdbc.update("""
+            DELETE FROM dbo.ANSWER_OPTION
+            WHERE question_id IN (
+                SELECT quiz_id FROM dbo.QUIZ_TEST WHERE question_id = :testId
+            )
+            """, parameter);
+        jdbc.update("""
+            DELETE FROM dbo.QUIZ_TEST
+            WHERE question_id = :testId
+            """, parameter);
+        jdbc.update("""
+            DELETE FROM dbo.AI_QUESTION
+            WHERE question_id = :testId
+            """, parameter);
+    }
+
+    /**
      *
      *
      */

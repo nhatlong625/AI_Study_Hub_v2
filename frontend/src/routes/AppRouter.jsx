@@ -1,6 +1,8 @@
 import { lazy, Suspense } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 import ScrollToTop from "./ScrollToTop";
+import SessionGuard from "../components/common/SessionGuard";
+import ErrorBoundary from "../components/common/ErrorBoundary";
 
 function normalizeRole(role) {
   const normalized = String(role || "")
@@ -208,10 +210,14 @@ function AppRouter() {
   ]);
 
   return (
-    <>
+    <SessionGuard>
       <ScrollToTop />
-      <Suspense fallback={<RouteLoading />}>{routes}</Suspense>
-    </>
+      {/* Lớp ngoài cùng cho các route không nằm trong layout nào (login, landing,
+          share). Các route có layout đã được bọc riêng bên trong layout đó. */}
+      <ErrorBoundary>
+        <Suspense fallback={<RouteLoading />}>{routes}</Suspense>
+      </ErrorBoundary>
+    </SessionGuard>
   );
 }
 

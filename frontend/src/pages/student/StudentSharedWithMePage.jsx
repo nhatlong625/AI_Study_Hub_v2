@@ -113,7 +113,7 @@ function VisibilityLabel({ status }) {
   return <span className="text-xs font-semibold text-gray-500">Private</span>;
 }
 
-// Confirm trước khi tự gỡ mình khỏi "Shared with me" — KHÁC delete: chỉ xoá
+// Confirm trước khi tự gỡ mình khỏi "Shared With Me" — KHÁC delete: chỉ xoá
 // quyền truy cập của chính mình (đổi status share → REVOKED), không xoá file
 // gốc, không ảnh hưởng owner hay người khác đang được share cùng tài liệu.
 function RemoveConfirmModal({ fileName, onConfirm, onCancel }) {
@@ -152,7 +152,7 @@ function RemoveConfirmModal({ fileName, onConfirm, onCancel }) {
           </h3>
           <p className="text-sm text-gray-500 leading-relaxed">
             <span className="font-semibold text-gray-700">"{fileName}"</span>{" "}
-            will be removed from your "Shared with me" list. The owner can share
+            will be removed from your "Shared With Me" list. The owner can share
             it with you again anytime.
           </p>
         </div>
@@ -174,16 +174,6 @@ function RemoveConfirmModal({ fileName, onConfirm, onCancel }) {
       </div>
     </div>
   );
-}
-
-// Đọc userId từ localStorage — fallback về 1 nếu chưa login
-function getUserId() {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    return user.userId || 1;
-  } catch {
-    return 1;
-  }
 }
 
 // ── Icons ──────────────────────────────────────────────────────
@@ -266,7 +256,7 @@ export default function StudentSharedWithMePage() {
 
   useEffect(() => {
     documentApi
-      .getSharedWithMe(getUserId())
+      .getSharedWithMe()
       .then(setItems)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -384,7 +374,7 @@ export default function StudentSharedWithMePage() {
   });
 
   return (
-    <div className="p-7" style={{ background: "#f5f6fa", minHeight: "100%" }}>
+    <div className="p-7 bg-gray-50 min-h-screen">
       {notice && (
         <VisibilityNoticeModal
           title={notice.title}
@@ -403,7 +393,7 @@ export default function StudentSharedWithMePage() {
       <div className="flex min-h-[64px] items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="m-0 text-[30px] leading-9 font-black text-gray-900 tracking-tight">
-            Shared with me
+            Shared With Me
           </h1>
           <p className="mt-1 mb-0 text-sm leading-5 text-gray-500">
             Documents other students have shared with you.
@@ -477,11 +467,10 @@ export default function StudentSharedWithMePage() {
         ) : (
           <>
             {/* Table header */}
-            <div className="grid grid-cols-[1fr_160px_80px_100px_140px_70px] px-6 py-3.5 bg-indigo-50 border-b border-indigo-100">
+            <div className="grid grid-cols-[1fr_250px_100px_140px_70px] px-6 py-3.5 bg-indigo-50 border-b border-indigo-100">
               {[
                 "Document",
                 "Shared by",
-                "Type",
                 "Permission",
                 "Visibility",
                 "Action",
@@ -506,7 +495,7 @@ export default function StudentSharedWithMePage() {
                   <div
                     key={item.shareId}
                     className={
-                      "grid grid-cols-[1fr_160px_80px_100px_140px_70px] px-6 py-4 items-center hover:bg-gray-50 transition-colors " +
+                      "grid grid-cols-[1fr_250px_100px_140px_70px] px-6 py-4 items-center hover:bg-gray-50 transition-colors " +
                       (i < filtered.length - 1
                         ? "border-b border-gray-100"
                         : "")
@@ -548,13 +537,6 @@ export default function StudentSharedWithMePage() {
                           {item.ownerEmail}
                         </p>
                       </div>
-                    </div>
-
-                    {/* Type */}
-                    <div className="flex items-center justify-center border-l border-gray-200 self-stretch">
-                      <span className="text-xs font-bold text-gray-400 uppercase">
-                        {ext || "—"}
-                      </span>
                     </div>
 
                     {/* Permission */}

@@ -309,6 +309,21 @@ public class DocumentService {
         }
     }
 
+    /**
+     * Owner hoặc người được chia sẻ đều được gỡ share: người nhận cần tự bỏ tài liệu
+     * khỏi "Shared with me" mà không phải xin owner. Đổi permission thì vẫn chỉ owner
+     * (xem requireShareOwner).
+     */
+    public void requireShareParticipant(Integer shareId, Integer userId) {
+        DocumentShare share = documentShareRepository.findById(shareId)
+                .orElseThrow(() -> new ResourceNotFoundException("Share not found: " + shareId));
+        boolean isOwner = share.getUserId() != null && share.getUserId().equals(userId);
+        boolean isRecipient = share.getSharedToUserId() != null && share.getSharedToUserId().equals(userId);
+        if (!isOwner && !isRecipient) {
+            throw new org.springframework.security.access.AccessDeniedException("You cannot manage this share.");
+        }
+    }
+
     public DocumentFile getFile(Integer id) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
@@ -808,6 +823,19 @@ public class DocumentService {
         if (!admin && !doc.getUserId().equals(requesterId)) {
             throw new org.springframework.security.access.AccessDeniedException("You cannot restore this document.");
         }
+
+        // Từ khi trash không còn tính vào quota, khôi phục là hành vi "thêm dung lượng"
+        // nên phải kiểm hạn mức — nếu không sẽ thành đường vòng để vượt quota.
+        // Tính theo chủ sở hữu tài liệu, không phải người bấm khôi phục (admin).
+        long size = doc.getDocumentSize() == null ? 0L : doc.getDocumentSize();
+        PlanQuotaService.PlanQuota restoreQuota = planQuotaService.getQuota(doc.getUserId());
+        long restoreUsedBytes = planQuotaService.getUsage(doc.getUserId()).usedBytes();
+        if (restoreUsedBytes + size > restoreQuota.maxStorageBytes()) {
+            throw new BadRequestException(
+                    "Not enough storage to restore \"" + doc.getDocumentName()
+                            + "\". Free up space or delete other files permanently first.");
+        }
+
         doc.setDeletedAt(null);
         doc.setDeletedByUserId(null);
         doc.setDeletedByRole(null);
@@ -1249,18 +1277,7 @@ public class DocumentService {
         // LibraryService.getOverview displays.
         PlanQuotaService.PlanQuota quota = planQuotaService.getQuota(userId);
         long maxStorageBytes = quota.maxStorageBytes();
-
-        Long usedBytes;
-        try {
-            usedBytes = jdbcTemplate.queryForObject("""
-                    SELECT COALESCE(SUM(document_size), 0)
-                    FROM dbo.DOCUMENT
-                    WHERE user_id = ? AND status = 'Active'
-                    """, Long.class, userId);
-        } catch (Exception e) {
-            usedBytes = 0L;
-        }
-        if (usedBytes == null) usedBytes = 0L;
+        long usedBytes = planQuotaService.getUsage(userId).usedBytes();
 
         if (usedBytes + newFileSize > maxStorageBytes) {
             // Raw byte values let the client format precisely (e.g. "0.5 GB") and explain that the

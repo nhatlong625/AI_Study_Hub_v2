@@ -3,7 +3,7 @@
 // API service - connects to the Spring Boot backend.
 // ============================================================
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+import { API_BASE_URL as BASE_URL } from "../config/api";
 
 const getHeaders = () => {
   const token = localStorage.getItem("token");
@@ -37,6 +37,10 @@ export const semesterApi = {
   getAll: async (majorId = null) => {
     const url = (majorId && majorId > 0) ? `${BASE_URL}/semesters?majorId=${majorId}` : `${BASE_URL}/semesters`;
     const res = await fetch(url, { headers: getHeaders() });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Cannot load semesters (HTTP ${res.status}).`);
+    }
     return res.json();
   },
 };
@@ -50,6 +54,10 @@ export const subjectApi = {
     const res = await fetch(`${BASE_URL}/subjects/semester/${semesterId}`, {
       headers: getHeaders(),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Cannot load subjects (HTTP ${res.status}).`);
+    }
     return res.json();
   },
 
@@ -59,6 +67,10 @@ export const subjectApi = {
       `${BASE_URL}/subjects?semesterId=${semesterId}&subjectName=${encodeURIComponent(subjectName)}&description=${encodeURIComponent(description)}`,
       { method: "POST", headers: getHeaders() },
     );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Cannot add subject (HTTP ${res.status}).`);
+    }
     return res.json();
   },
 
@@ -227,6 +239,31 @@ export const documentApi = {
     return res.json();
   },
 
+  // Report time actually spent reading a document. Never throws: the viewer must keep working
+  // even if the stat does not land. Failures are logged rather than silently dropped — a stat
+  // that quietly stops recording looks identical to a user who never read anything.
+  reportReading: async (documentId, seconds) => {
+    if (!documentId || !seconds || seconds <= 0) return;
+    try {
+      const res = await fetch(
+        `${BASE_URL}/documents/${documentId}/reading-progress`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ seconds }),
+          keepalive: true,
+        },
+      );
+      if (!res.ok) {
+        console.warn(
+          `Reading progress not recorded (HTTP ${res.status}) for document ${documentId}.`,
+        );
+      }
+    } catch (err) {
+      console.warn("Reading progress request failed:", err?.message || err);
+    }
+  },
+
   // Delete a document; BE also removes the file from storage.
   delete: async (documentId) => {
     const res = await fetch(`${BASE_URL}/documents/${documentId}`, {
@@ -308,9 +345,10 @@ export const documentApi = {
 
   // Share Document.
   // Create or reuse an ACTIVE share link; idempotent.
-  createShareLink: async (documentId, userId = 1) => {
+  // Chủ tài liệu lấy từ JWT ở BE, không truyền userId từ client.
+  createShareLink: async (documentId) => {
     const res = await fetch(
-      `${BASE_URL}/documents/${documentId}/share?userId=${userId}`,
+      `${BASE_URL}/documents/${documentId}/share`,
       { method: "POST", headers: getHeaders() },
     );
     if (!res.ok) {
@@ -321,9 +359,9 @@ export const documentApi = {
   },
 
   // Revoke the ACTIVE share link.
-  revokeShareLink: async (documentId, userId = 1) => {
+  revokeShareLink: async (documentId) => {
     const res = await fetch(
-      `${BASE_URL}/documents/${documentId}/share?userId=${userId}`,
+      `${BASE_URL}/documents/${documentId}/share`,
       { method: "DELETE", headers: getHeaders() },
     );
     if (!res.ok) {
@@ -349,11 +387,11 @@ export const documentApi = {
   },
 
 
-  shareWithUser: async (documentId, email, permission, ownerUserId = 1) => {
+  shareWithUser: async (documentId, email, permission) => {
     const res = await fetch(`${BASE_URL}/documents/${documentId}/share/user`, {
       method: "POST",
       headers: getHeaders(),
-      body: JSON.stringify({ email, permission, ownerUserId }),
+      body: JSON.stringify({ email, permission }),
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(payload.message || `HTTP ${res.status}`);
@@ -368,8 +406,8 @@ export const documentApi = {
     return res.json();
   },
 
-  getSharedWithMe: async (userId = 1) => {
-    const res = await fetch(`${BASE_URL}/documents/shared-with-me?userId=${userId}`, {
+  getSharedWithMe: async () => {
+    const res = await fetch(`${BASE_URL}/documents/shared-with-me`, {
       headers: getHeaders(),
     });
     if (!res.ok) return [];
@@ -381,7 +419,10 @@ export const documentApi = {
       method: "DELETE",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.message || "Could not remove this shared document.");
+    }
   },
 
   updateSharePermission: async (shareId, permission) => {

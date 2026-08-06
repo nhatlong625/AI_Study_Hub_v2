@@ -7,6 +7,7 @@ import com.aistudyhub.dto.response.DocumentResponse;
 import com.aistudyhub.dto.response.DocumentSummarizeResponse;
 import com.aistudyhub.dto.response.UserShareResponse;
 import com.aistudyhub.dto.response.TrashDocumentResponse;
+import com.aistudyhub.service.DocumentReadingService;
 import com.aistudyhub.service.DocumentService;
 import com.aistudyhub.security.CurrentUser;
 import jakarta.validation.Valid;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentReadingService documentReadingService;
     private final CurrentUser currentUser;
 
     /** Upload file lên Supabase + lưu metadata DB */
@@ -165,6 +167,26 @@ public class DocumentController {
     // ── Share Document ────────────────────────────────────────
 
     /**
+     * Cộng dồn thời gian user thực sự mở đọc tài liệu.
+     *
+     * <p>Gọi theo nhịp trong lúc trang xem tài liệu đang mở và tab đang hiển thị. Trả về tổng thời
+     * gian đã cộng dồn để client biết đã qua ngưỡng tính "đã học" chưa.
+     */
+    @PostMapping("/{id}/reading-progress")
+    public ResponseEntity<Map<String, Object>> recordReading(
+            @PathVariable Integer id,
+            @RequestBody Map<String, Object> body) {
+        // requireReadable chứ không phải requireOwner: thời gian học là của người đọc,
+        // không phụ thuộc ai sở hữu file — tài liệu được chia sẻ cũng phải được tính.
+        documentService.requireReadable(id, currentUser.id());
+        int seconds = body.get("seconds") instanceof Number n ? n.intValue() : 0;
+        int total = documentReadingService.addReadingTime(currentUser.id(), id, seconds);
+        return ResponseEntity.ok(Map.of(
+                "readSeconds", total,
+                "thresholdSeconds", DocumentReadingService.READ_THRESHOLD_SECONDS));
+    }
+
+    /**
      * Tạo hoặc lấy lại link share ACTIVE cho document.
      * Idempotent: bấm nhiều lần vẫn trả cùng 1 link.
      */
@@ -218,7 +240,8 @@ public class DocumentController {
 
     @DeleteMapping("/share/user/{shareId}")
     public ResponseEntity<Void> revokeUserShare(@PathVariable Integer shareId) {
-        documentService.requireShareOwner(shareId, currentUser.id());
+        // Chủ tài liệu thu hồi, hoặc người được chia sẻ tự gỡ khỏi "Shared with me".
+        documentService.requireShareParticipant(shareId, currentUser.id());
         documentService.revokeUserShare(shareId);
         return ResponseEntity.noContent().build();
     }

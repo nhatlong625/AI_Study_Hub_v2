@@ -1,5 +1,4 @@
-const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+import { API_BASE_URL as BASE_URL } from "../config/api";
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("token");
@@ -28,10 +27,10 @@ async function request(path, options = {}) {
 }
 
 export const practiceTestApi = {
-  list: (userId = 1) => request(`/practice-tests?userId=${userId}`),
+  // userId lấy từ JWT ở BE, không truyền từ client.
+  list: () => request("/practice-tests"),
   get: (testId) => request(`/practice-tests/${testId}`),
-  getInProgress: (userId = 1) =>
-    request(`/practice-tests/in-progress?userId=${userId}`),
+  getInProgress: () => request("/practice-tests/in-progress"),
   generate: (payload) =>
     request("/practice-tests/generate", {
       method: "POST",
@@ -49,4 +48,8 @@ export const practiceTestApi = {
     }),
   getResult: (attemptId) =>
     request(`/practice-tests/attempts/${attemptId}/result`),
+  delete: (testId) =>
+    request(`/practice-tests/${testId}`, {
+      method: "DELETE",
+    }),
 };

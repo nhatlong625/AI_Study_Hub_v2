@@ -126,7 +126,7 @@ function StudentAITutorPage() {
     const userId = getDefaultAiUserId();
     Promise.all([
       documentApi.getByUser(userId).catch(() => []),
-      documentApi.getSharedWithMe(userId).catch(() => [])
+      documentApi.getSharedWithMe().catch(() => [])
     ])
       .then(([ownDocuments, sharedDocuments]) => {
         const normalizedShared = (Array.isArray(sharedDocuments) ? sharedDocuments : []).map(item => ({
@@ -167,7 +167,7 @@ function StudentAITutorPage() {
     const userId = getDefaultAiUserId();
     Promise.all([
       documentApi.getByUser(userId).catch(error => ({ error })),
-      documentApi.getSharedWithMe(userId).catch(() => []),
+      documentApi.getSharedWithMe().catch(() => []),
       ...subjectIds.map(subjectId => documentApi.getBySubject(subjectId).catch(error => ({ error })))
     ])
       .then(([ownDocumentsResult, sharedDocumentsResult, ...subjectResults]) => {

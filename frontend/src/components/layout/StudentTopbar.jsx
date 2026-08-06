@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import TopbarSearchDropdown from "../common/TopbarSearchDropdown";
 import NotificationPanel from "../common/NotificationPanel";
 import useUnreadNotifications from "../../hooks/useUnreadNotifications";
-import logoImg from "../../assets/logos/logo.png";
 import { userService } from "../../services/userService";
 import { documentApi, semesterApi } from "../../services/libraryApi";
 import { getDefaultAiUserId } from "../../services/aiChatService";
+import UserAvatar from "../common/UserAvatar";
 
 function normalizePlan(plan) {
   const raw = String(plan || "Basic").trim();
@@ -27,9 +27,10 @@ function getCurrentUser() {
       name: stored.fullName || stored.name || "Student",
       role: stored.role === "ADMIN" ? "Super Admin" : normalizePlan(stored.plan),
       streakDays: stored.streakDays || 0,
+      avatarUrl: stored.avatarUrl || null,
     };
   } catch {
-    return { userId: null, name: "Student", role: "Basic", streakDays: 0 };
+    return { userId: null, name: "Student", role: "Basic", streakDays: 0, avatarUrl: null };
   }
 }
 
@@ -66,9 +67,8 @@ const SearchWrapper = ({ children }) => (
   </div>
 );
 
-import MajorSelector from "../student/MajorSelector";
 
-function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick, selectedMajorId, onSelectMajor }) {
+function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick, userProfile }) {
   const topbarClass =
     "sticky top-0 z-10 flex items-center justify-between gap-5 px-7 py-4 bg-white border-b border-[#f1eff5]";
 
@@ -78,6 +78,20 @@ function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick, selectedMa
   const [currentUser, setCurrentUser] = useState(getCurrentUser);
   const [searchCourses, setSearchCourses] = useState([]);
   const [searchDocuments, setSearchDocuments] = useState([]);
+
+  // Đổi tên/avatar ở Settings phát sự kiện này; thiếu listener thì topbar giữ dữ liệu
+  // cũ tới khi F5, lệch hẳn với trang Profile.
+  useEffect(() => {
+    const handler = (e) => {
+      setCurrentUser((prev) => ({
+        ...prev,
+        ...("avatarUrl" in (e.detail || {}) ? { avatarUrl: e.detail.avatarUrl } : {}),
+        ...(e.detail?.fullName ? { name: e.detail.fullName } : {}),
+      }));
+    };
+    window.addEventListener("user-profile-updated", handler);
+    return () => window.removeEventListener("user-profile-updated", handler);
+  }, []);
 
   useEffect(() => {
     if (isAdmin || !currentUser.userId) return;
@@ -231,12 +245,6 @@ function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick, selectedMa
       </SearchWrapper>
 
       <div className="flex items-center gap-5" style={{ gap: "16px" }}>
-        {onSelectMajor && (
-          <MajorSelector
-            selectedMajorId={selectedMajorId}
-            onSelectMajor={onSelectMajor}
-          />
-        )}
         <div
           style={{
             display: "flex",
@@ -333,7 +341,13 @@ function StudentTopbar({ isAdmin = false, onCourseClick, onFileClick, selectedMa
           )}
         </div>
 
-        <ProfileSection name={currentUser.name} role={currentUser.role} />
+        {/* Profile lấy từ API là nguồn đúng nhất; localStorage chỉ dùng để không
+            nhấp nháy trong lúc request chưa về. */}
+        <ProfileSection
+          name={userProfile?.fullName || currentUser.name}
+          role={currentUser.role}
+          avatarUrl={userProfile ? userProfile.avatarUrl : currentUser.avatarUrl}
+        />
       </div>
     </header>
   );
@@ -379,7 +393,7 @@ function NotificationButton() {
   );
 }
 
-function ProfileSection({ name, role }) {
+function ProfileSection({ name, role, avatarUrl }) {
   const [showMenu, setShowMenu] = useState(false);
   const profileRef = useRef(null);
   const navigate = useNavigate();
@@ -426,13 +440,7 @@ function ProfileSection({ name, role }) {
           transition: "background 0.18s ease",
         }}
       >
-        <div className="w-9 h-9 rounded-full bg-[#f0edff] border border-[#ece7f5] flex items-center justify-center overflow-hidden">
-          <img
-            src={logoImg}
-            alt="Avatar"
-            className="w-4/5 h-4/5 object-contain"
-          />
-        </div>
+        <UserAvatar name={name} avatarUrl={avatarUrl} size={36} fontSize={13} />
         <div className="flex flex-col leading-snug text-left">
           <span className="text-[13px] font-bold text-[#1a1926]">{name}</span>
           <span className="text-[11px] font-medium text-[#8c8a9e]">{role}</span>

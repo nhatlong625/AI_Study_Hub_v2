@@ -26,7 +26,24 @@ const SparklesIcon = ({ className = "w-3 h-3" }) => (
   </svg>
 );
 
-export default function MajorSelector({ selectedMajorId, onSelectMajor, className = "" }) {
+/**
+ * @param variant      "pill"  — nút viền tím, dùng cho bộ lọc ở Home.
+ *                     "ghost" — chữ thường, hover mới hiện nền; dùng ở Profile để
+ *                               trông cùng nhịp với dòng "Joined ..." bên trên và
+ *                               không nổi hơn tên người dùng.
+ * @param allowAll     Cho phép chọn "All Majors". Ở Profile phải tắt: ngành là bắt
+ *                     buộc nên "không ngành nào" không phải một lựa chọn hợp lệ.
+ * @param currentLabel Tên hiện tạm trong lúc danh sách ngành chưa tải xong, để dòng
+ *                     này không biến mất rồi hiện lại làm nhảy layout.
+ */
+export default function MajorSelector({
+  selectedMajorId,
+  onSelectMajor,
+  className = "",
+  variant = "pill",
+  allowAll = true,
+  currentLabel = "",
+}) {
   const [majors, setMajors] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -64,9 +81,19 @@ export default function MajorSelector({ selectedMajorId, onSelectMajor, classNam
   }, []);
 
   const activeMajor = majors.find((m) => m.majorId === Number(selectedMajorId));
+  const isGhost = variant === "ghost";
+  const label =
+    activeMajor?.majorName || currentLabel || (allowAll ? "All Majors" : "Not set");
 
   if (loading || majors.length === 0) {
-    return null; // Don't show selector if no majors configured or loading
+    // Ghost giữ chỗ bằng chữ tĩnh để không nhảy layout; pill thì ẩn hẳn như trước.
+    if (!isGhost) return null;
+    return (
+      <span className={`inline-flex items-center gap-1.5 text-sm text-gray-400 ${className}`}>
+        <GraduationCapIcon className="w-3.5 h-3.5 shrink-0" />
+        {label}
+      </span>
+    );
   }
 
   return (
@@ -74,14 +101,28 @@ export default function MajorSelector({ selectedMajorId, onSelectMajor, classNam
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm border border-indigo-500/30 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 hover:border-indigo-500/50 focus:outline-none"
-        title="Select Major"
+        className={
+          isGhost
+            // -mx/-my triệt tiêu padding của nút để hộp của nó cao đúng bằng một
+            // dòng chữ, nhờ vậy nhịp dòng khớp với email/Joined ở trên.
+            ? "group inline-flex items-center gap-1.5 -mx-1.5 -my-0.5 px-1.5 py-0.5 rounded-lg text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none transition-colors cursor-pointer"
+            : "inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm border border-indigo-500/30 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 hover:border-indigo-500/50 focus:outline-none"
+        }
+        title={isGhost ? "Change major" : "Select Major"}
       >
-        <GraduationCapIcon className="w-4 h-4 text-indigo-600 shrink-0" />
-        <span className="truncate max-w-[160px]">
-          {activeMajor ? activeMajor.majorName : "All Majors"}
-        </span>
-        <ChevronDownIcon className={`w-3.5 h-3.5 text-indigo-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        <GraduationCapIcon
+          className={isGhost ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 text-indigo-600 shrink-0"}
+        />
+        <span className="truncate max-w-[200px]">{label}</span>
+        <ChevronDownIcon
+          className={
+            (isGhost
+              ? "w-3 h-3 text-gray-400 group-hover:text-gray-600 "
+              : "w-3.5 h-3.5 text-indigo-500 ") +
+            "transition-transform duration-200 " +
+            (isOpen ? "rotate-180" : "")
+          }
+        />
       </button>
 
       {isOpen && (
@@ -94,22 +135,24 @@ export default function MajorSelector({ selectedMajorId, onSelectMajor, classNam
           </div>
 
           <div className="max-h-60 overflow-y-auto custom-scrollbar px-1">
-            {/* All Majors option */}
-            <button
-              type="button"
-              onClick={() => {
-                onSelectMajor(null);
-                setIsOpen(false);
-              }}
-              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
-                !selectedMajorId
-                  ? "bg-indigo-50 text-indigo-700 font-semibold"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <span>All Majors (Browse Everything)</span>
-              {!selectedMajorId && <CheckIcon className="w-3.5 h-3.5 text-indigo-600" />}
-            </button>
+            {/* All Majors option — chỉ có nghĩa khi đang dùng làm bộ lọc */}
+            {allowAll && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectMajor(null);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
+                  !selectedMajorId
+                    ? "bg-indigo-50 text-indigo-700 font-semibold"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <span>All Majors (Browse Everything)</span>
+                {!selectedMajorId && <CheckIcon className="w-3.5 h-3.5 text-indigo-600" />}
+              </button>
+            )}
 
             {/* List of majors */}
             {majors.map((m) => {

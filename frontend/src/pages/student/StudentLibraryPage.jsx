@@ -387,7 +387,7 @@ export default function StudentLibraryPage() {
   useEffect(() => {
     let cancelled = false;
     practiceTestApi
-      .list(userId)
+      .list()
       .then((tests) => {
         if (!cancelled) {
           setTotalGenerated(Array.isArray(tests) ? tests.length : 0);

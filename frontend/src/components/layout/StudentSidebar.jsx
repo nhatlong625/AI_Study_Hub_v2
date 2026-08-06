@@ -4,6 +4,7 @@ import logoImg from "../../assets/logos/logo.png";
 import logoIcon from "../../assets/logos/logo-icon.png";
 import { useSidebarContext } from "../../hooks/useSidebar";
 import UpgradePricingModal from "../student/UpgradePricingModal";
+import UserAvatar from "../common/UserAvatar";
 
 
 
@@ -73,7 +74,7 @@ const mainItems = [
   },
   {
     slug: "shared-with-me",
-    label: "Shared with me",
+    label: "Shared With Me",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -117,7 +118,7 @@ const mainItems = [
   },
 ];
 
-function StudentSidebar({ history = [], onHistoryClick, onClearHistory }) {
+function StudentSidebar({ history = [], onHistoryClick, onClearHistory, userProfile }) {
   const { collapsed, toggle } = useSidebarContext();
   const location = useLocation();
   const navigate = useNavigate();
@@ -143,12 +144,18 @@ function StudentSidebar({ history = [], onHistoryClick, onClearHistory }) {
     } catch { return { fullName: "Student", avatarUrl: null }; }
   });
 
+  // Profile từ API là nguồn đúng; userInfo (localStorage) chỉ để không nhấp nháy.
+  const displayName = userProfile?.fullName || userInfo.fullName;
+  const displayAvatarUrl = userProfile ? userProfile.avatarUrl : userInfo.avatarUrl;
+
   useEffect(() => {
     const handler = (e) => {
       setUserInfo((prev) => ({
         ...prev,
-        ...(e.detail.avatarUrl ? { avatarUrl: e.detail.avatarUrl } : {}),
-        ...(e.detail.fullName ? { fullName: e.detail.fullName } : {}),
+        // Kiểm tra bằng "in" chứ không bằng truthy: gỡ avatar gửi avatarUrl = null,
+        // dùng truthy thì lần gỡ đó bị bỏ qua và sidebar vẫn hiện ảnh cũ.
+        ...("avatarUrl" in (e.detail || {}) ? { avatarUrl: e.detail.avatarUrl } : {}),
+        ...(e.detail?.fullName ? { fullName: e.detail.fullName } : {}),
       }));
     };
     window.addEventListener("user-profile-updated", handler);
@@ -508,28 +515,10 @@ function StudentSidebar({ history = [], onHistoryClick, onClearHistory }) {
                 color: "#1a1926",
               }}
             >
-              <div
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "50%",
-                  border: "1px solid #efedf4",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  flexShrink: 0,
-                }}
-              >
-                {userInfo.avatarUrl ? (
-                  <img src={userInfo.avatarUrl} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
-                ) : (
-                  <img src={logoImg} alt="Profile" style={{ width: "80%", height: "80%", objectFit: "contain" }} />
-                )}
-              </div>
+              <UserAvatar name={displayName} avatarUrl={displayAvatarUrl} size={28} />
               {!collapsed && (
                 <span style={{ fontSize: "12px", fontWeight: "600" }}>
-                  {userInfo.fullName}
+                  {displayName}
                 </span>
               )}
             </button>

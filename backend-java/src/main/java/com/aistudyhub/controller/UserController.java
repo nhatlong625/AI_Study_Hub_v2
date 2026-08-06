@@ -3,8 +3,12 @@ package com.aistudyhub.controller;
 import com.aistudyhub.dto.request.ChangePasswordRequest;
 import com.aistudyhub.dto.request.UpdateSettingsRequest;
 import com.aistudyhub.dto.response.*;
+import com.aistudyhub.exception.BadRequestException;
+import com.aistudyhub.exception.ConflictException;
 import com.aistudyhub.security.CurrentUser;
 import com.aistudyhub.service.PlanQuotaService;
+import com.aistudyhub.service.StudyTimeService;
+import com.aistudyhub.service.UserActivityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,11 +31,17 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 @RequiredArgsConstructor
 public class UserController {
 
+    /** Kiểm tra hình thức email; ràng buộc duy nhất vẫn do UQ_USER_email đảm bảo. */
+    private static final java.util.regex.Pattern EMAIL_PATTERN =
+            java.util.regex.Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]{2,}$");
+
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwordEncoder;
     private final WebClient supabaseWebClient;
     private final CurrentUser currentUser;
     private final PlanQuotaService planQuotaService;
+    private final StudyTimeService studyTimeService;
+    private final UserActivityService userActivityService;
 
     @Value("${supabase.url}")
     private String supabaseUrl;
@@ -80,6 +90,21 @@ public class UserController {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Upload failed: " + e.getMessage()));
         }
+    }
+
+    // ── DELETE /api/users/{userId}/avatar ─────────────────────────────────────
+    /**
+     * Gỡ avatar để quay về hiển thị chữ cái đầu. Chỉ xoá tham chiếu trong DB, không
+     * xoá file trên storage — file mồ côi vài KB rẻ hơn là thêm một đường lỗi mạng.
+     */
+    @DeleteMapping("/{userId}/avatar")
+    public ResponseEntity<MessageResponse> removeAvatar(@PathVariable Integer userId) {
+        userId = currentUser.id();
+        jdbc.update("""
+                UPDATE dbo.[USER] SET avatar_url = NULL, updated_at = GETDATE()
+                WHERE user_id = ?
+                """, userId);
+        return ResponseEntity.ok(new MessageResponse("Avatar removed"));
     }
 
     /**
@@ -139,18 +164,22 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> updateMyMajor(@RequestBody Map<String, Integer> payload) {
         Integer uId = currentUser.id();
         Integer majorId = payload.get("majorId");
-        if (majorId != null && majorId > 0) {
-            jdbc.update("UPDATE dbo.[USER] SET major_id = ?, updated_at = GETDATE() WHERE user_id = ?", majorId, uId);
-        } else {
-            jdbc.update("UPDATE dbo.[USER] SET major_id = NULL, updated_at = GETDATE() WHERE user_id = ?", uId);
-            majorId = null;
+
+        // Không cho gỡ ngành về NULL: sinh viên phải có ngành mới vào được app, nên
+        // một endpoint xoá ngành chính là đường lách yêu cầu đó. "All Majors" trên
+        // Topbar chỉ là bộ lọc xem ở client, không gọi tới đây.
+        if (majorId == null || majorId <= 0) {
+            throw new BadRequestException("A major is required and cannot be cleared.");
         }
 
         String majorName = null;
-        if (majorId != null) {
-            List<String> names = jdbc.query("SELECT major_name FROM dbo.MAJOR WHERE major_id = ?", (rs, rowNum) -> rs.getString("major_name"), majorId);
-            if (!names.isEmpty()) majorName = names.get(0);
+        List<String> names = jdbc.query("SELECT major_name FROM dbo.MAJOR WHERE major_id = ?", (rs, rowNum) -> rs.getString("major_name"), majorId);
+        if (names.isEmpty()) {
+            throw new BadRequestException("Major not found: " + majorId);
         }
+        majorName = names.get(0);
+
+        jdbc.update("UPDATE dbo.[USER] SET major_id = ?, updated_at = GETDATE() WHERE user_id = ?", majorId, uId);
 
         Map<String, Object> res = new HashMap<>();
         res.put("message", "Major updated successfully");
@@ -178,73 +207,37 @@ public class UserController {
             }
         } catch (Exception ignored) {}
 
-        // 2. Study time — đếm chat messages (mỗi exchange ~3 phút)
-        Integer messageCount = jdbc.queryForObject("""
-                SELECT COUNT(cm.message_id)
-                FROM dbo.CHAT_MESSAGE cm
-                JOIN dbo.CHAT_SESSION cs ON cs.session_id = cm.session_id
-                WHERE cs.user_id = ?
-                """, Integer.class, userId);
-        int studyTimeMinutes = (messageCount == null ? 0 : messageCount) * 3;
+        // 2. Study time — thời gian đọc tài liệu + làm quiz, đều là số đo thật.
+        int studyTimeMinutes = studyTimeService.getStudyTimeMinutes(userId);
 
         // 3. Courses completed — số user_subjects
         Integer coursesCompleted = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM dbo.USER_SUBJECT WHERE user_id = ?
                 """, Integer.class, userId);
 
-        // 4. XP — docs×50 + chat sessions×20 + quiz attempts×100
-        Integer docCount = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.DOCUMENT WHERE user_id = ?
-                """, Integer.class, userId);
-        Integer sessionCount = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.CHAT_SESSION WHERE user_id = ?
-                """, Integer.class, userId);
-        Integer attemptCount = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM dbo.TEST_ATTEMPT WHERE user_id = ?
-                """, Integer.class, userId);
-
-        long xp = (long)(docCount == null ? 0 : docCount) * 50
-                + (long)(sessionCount == null ? 0 : sessionCount) * 20
-                + (long)(attemptCount == null ? 0 : attemptCount) * 100;
-
-        int level = (int)(xp / 250) + 1;
-        long xpForCurrentLevel = ((long)(level - 1)) * 250;
-        long xpForNextLevel = (long) level * 250;
-
-        // 5. Storage
-        Long usedBytes = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(document_size), 0)
-                FROM dbo.DOCUMENT WHERE user_id = ?
-                """, Long.class, userId);
-
-        Integer maxStorageMb;
-        try {
-            maxStorageMb = jdbc.queryForObject("""
-                    SELECT TOP 1 pv.max_storage
-                    FROM dbo.USER_SUBSCRIPTION us
-                    JOIN dbo.SUBSCRIPTION_PLAN_VERSION pv ON pv.version_id = us.version_id
-                    WHERE us.user_id = ? AND us.status = 'Active'
-                    ORDER BY us.end_date DESC, us.subscription_id DESC
-                    """, Integer.class, userId);
-        } catch (Exception e) {
-            maxStorageMb = 1024;
-        }
-        if (maxStorageMb == null) maxStorageMb = 1024;
-        long totalBytes = (long) maxStorageMb * 1024L * 1024L;
+        // 4. Storage — cả hai con số đều đọc qua PlanQuotaService nên khớp tuyệt đối với
+        // thanh STORAGE USED ở Library và với hạn mức áp lúc upload.
+        long usedBytes = planQuotaService.getUsage(userId).usedBytes();
+        long totalBytes = planQuotaService.getQuota(userId).maxStorageBytes();
 
         UserStatsResponse stats = UserStatsResponse.builder()
                 .streakDays(streakDays)
                 .studyTimeMinutes(studyTimeMinutes)
                 .coursesCompleted(coursesCompleted == null ? 0 : coursesCompleted)
-                .xp(xp)
-                .level(level)
-                .xpForCurrentLevel(xpForCurrentLevel)
-                .xpForNextLevel(xpForNextLevel)
-                .usedStorageBytes(usedBytes == null ? 0 : usedBytes)
+                .usedStorageBytes(usedBytes)
                 .totalStorageBytes(totalBytes)
                 .build();
 
         return ResponseEntity.ok(stats);
+    }
+
+    // ── GET /api/users/{userId}/activity ──────────────────────────────────────
+    @GetMapping("/{userId}/activity")
+    public ResponseEntity<List<UserActivityResponse>> getActivity(
+            @PathVariable Integer userId,
+            @RequestParam(defaultValue = "10") int limit) {
+        // userId trên path bị bỏ qua như các endpoint khác ở đây — luôn lấy user từ JWT.
+        return ResponseEntity.ok(userActivityService.getRecentActivity(currentUser.id(), limit));
     }
 
     /**
@@ -458,6 +451,29 @@ public class UserController {
         String fullName = body.get("fullName");
         if (fullName == null || fullName.isBlank()) {
             return ResponseEntity.badRequest().build();
+        }
+
+        // Email là tuỳ chọn: client cũ chỉ gửi fullName thì giữ nguyên email.
+        String email = body.get("email");
+        if (email != null && !email.isBlank()) {
+            String normalized = email.trim();
+            if (!EMAIL_PATTERN.matcher(normalized).matches()) {
+                throw new BadRequestException("That email address is not valid.");
+            }
+            // UQ_USER_email sẽ chặn ở tầng DB, nhưng kiểm trước để trả về câu dễ hiểu
+            // thay vì một lỗi ràng buộc SQL.
+            Integer taken = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM dbo.[USER]
+                    WHERE LOWER(email) = LOWER(?) AND user_id <> ?
+                    """, Integer.class, normalized, userId);
+            if (taken != null && taken > 0) {
+                throw new ConflictException("That email is already used by another account.");
+            }
+            jdbc.update("""
+                    UPDATE dbo.[USER]
+                    SET email = ?, updated_at = GETDATE()
+                    WHERE user_id = ?
+                    """, normalized, userId);
         }
 
         jdbc.update("""

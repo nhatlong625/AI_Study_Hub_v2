@@ -42,6 +42,50 @@ public class PlanQuotaService {
         }
     }
 
+    public record StorageUsage(long usedBytes, long fileCount) {
+        static final StorageUsage EMPTY = new StorageUsage(0, 0);
+    }
+
+    /**
+     * Điều kiện SQL xác định tài liệu nào chiếm quota của user.
+     *
+     * <p>Nơi nào cần "dung lượng user đang dùng" thì dùng hàm này thay vì tự viết lại, để
+     * Profile, Library và hạn mức áp lúc upload không trôi mỗi nơi một kiểu.
+     *
+     * @param alias bí danh bảng DOCUMENT trong câu query, để trống nếu không có
+     */
+    public static String quotaDocumentFilter(String alias) {
+        String p = (alias == null || alias.isBlank()) ? "" : alias.trim() + ".";
+        return p + "status = 'Active' AND " + p + "deleted_at IS NULL"
+                + " AND LOWER(" + p + "document_name) NOT LIKE 'mock-%'";
+    }
+
+    /**
+     * Single source of truth cho "đã dùng bao nhiêu".
+     *
+     * <p>Tài liệu trong Trash <b>không</b> tính vào dung lượng: xoá xong mà thanh dung lượng
+     * không giảm thì người dùng không còn cách nào tự giải phóng chỗ, và sẽ bị chặn upload bởi
+     * chính những file họ vừa xoá. Đổi lại, {@code DocumentService.restore} phải kiểm hạn mức
+     * trước khi khôi phục, vì khôi phục giờ là hành vi làm tăng dung lượng.
+     */
+    @Transactional(readOnly = true)
+    public StorageUsage getUsage(Integer userId) {
+        if (userId == null) return StorageUsage.EMPTY;
+        try {
+            return jdbcTemplate.queryForObject("""
+                    SELECT COALESCE(SUM(CAST(document_size AS BIGINT)), 0) AS usedBytes,
+                           COUNT(*) AS fileCount
+                    FROM dbo.DOCUMENT
+                    WHERE user_id = ? AND %s
+                    """.formatted(quotaDocumentFilter("")),
+                    (rs, rowNum) -> new StorageUsage(rs.getLong("usedBytes"), rs.getLong("fileCount")),
+                    userId);
+        } catch (Exception e) {
+            log.error("Failed to resolve storage usage for user {}: {}", userId, e.getMessage());
+            return StorageUsage.EMPTY;
+        }
+    }
+
     @Transactional(readOnly = true)
     public PlanQuota getQuota(Integer userId) {
         if (userId == null) return DEFAULT_QUOTA;

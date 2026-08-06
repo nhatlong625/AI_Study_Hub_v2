@@ -1,8 +1,4 @@
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:8080/api"
-).replace(/\/$/, "");
+import { API_BASE_URL } from "../config/api";
 
 const DEFAULT_PRICING = {
   BASIC: { price: 0, priceYearly: 0, originalPrice: 0, originalPriceYearly: 0, monthlyDiscount: 0, yearlyDiscount: 0 },

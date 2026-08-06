@@ -1,17 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { practiceTestApi } from "../../services/practiceTestApi";
-
-function getCurrentUserId() {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const value = user.userId ?? user.id ?? localStorage.getItem("aiStudyUserId");
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-  } catch {
-    return 1;
-  }
-}
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 const BADGE_COLORS = [
   "bg-blue-100 text-blue-700",
@@ -53,16 +43,16 @@ function IconButton({ label, disabled = false, onClick, children }) {
 
 function StudentPracticeTestsPage() {
   const navigate = useNavigate();
-  const currentUserId = getCurrentUserId();
   const [tests, setTests] = useState([]);
   const [inProgress, setInProgress] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [testToDelete, setTestToDelete] = useState(null);
 
   useEffect(() => {
     Promise.all([
-      practiceTestApi.list(currentUserId),
-      practiceTestApi.getInProgress(currentUserId),
+      practiceTestApi.list(),
+      practiceTestApi.getInProgress(),
     ])
       .then(([list, progress]) => {
         setTests(Array.isArray(list) ? list : []);
@@ -70,7 +60,7 @@ function StudentPracticeTestsPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [currentUserId]);
+  }, []);
 
   const stats = useMemo(() => {
     const completed = tests.filter((test) => test.score != null);
@@ -180,6 +170,24 @@ function StudentPracticeTestsPage() {
       label: "FAILED",
       className: "bg-rose-100 text-rose-600",
     };
+  };
+
+  const deleteTest = async () => {
+    if (!testToDelete) return;
+
+    try {
+      setError("");
+      await practiceTestApi.delete(testToDelete.id);
+      setTests((current) =>
+        current.filter((test) => test.id !== testToDelete.id),
+      );
+      setInProgress((current) =>
+        current.filter((item) => item.testId !== testToDelete.id),
+      );
+      setTestToDelete(null);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
@@ -300,7 +308,7 @@ function StudentPracticeTestsPage() {
           </h2>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="hidden grid-cols-[1.35fr_0.75fr_0.5fr_0.65fr_0.55fr_0.5fr] bg-violet-50/70 px-6 py-5 text-xs font-black uppercase tracking-wider text-slate-900 md:grid">
+            <div className="hidden grid-cols-[1.35fr_0.75fr_0.5fr_0.65fr_0.55fr_0.65fr] bg-violet-50/70 px-6 py-5 text-xs font-black uppercase tracking-wider text-slate-900 md:grid">
               <span>Quiz Name</span>
               <span>Subject</span>
               <span>Score</span>
@@ -327,7 +335,7 @@ function StudentPracticeTestsPage() {
                   return (
                     <article
                       key={test.id}
-                      className="grid gap-4 px-6 py-5 md:grid-cols-[1.35fr_0.75fr_0.5fr_0.65fr_0.55fr_0.5fr] md:items-center"
+                      className="grid gap-4 px-6 py-5 md:grid-cols-[1.35fr_0.75fr_0.5fr_0.65fr_0.55fr_0.65fr] md:items-center"
                     >
                       <div>
                         <p className="text-base font-black text-slate-950">
@@ -419,6 +427,25 @@ function StudentPracticeTestsPage() {
                             <path d="M3 4v6h6" />
                           </svg>
                         </IconButton>
+
+                        <IconButton
+                          label={`Delete ${test.title}`}
+                          onClick={() => setTestToDelete(test)}
+                        >
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4h8v2" />
+                            <path d="m19 6-1 14H6L5 6" />
+                            <path d="M10 11v5M14 11v5" />
+                          </svg>
+                        </IconButton>
                       </div>
                     </article>
                   );
@@ -428,6 +455,16 @@ function StudentPracticeTestsPage() {
           </div>
         </section>
       </div>
+
+      {testToDelete && (
+        <ConfirmDialog
+          type="delete"
+          title="Delete Practice Test?"
+          fileName={testToDelete.title}
+          onCancel={() => setTestToDelete(null)}
+          onConfirm={deleteTest}
+        />
+      )}
     </div>
   );
 }

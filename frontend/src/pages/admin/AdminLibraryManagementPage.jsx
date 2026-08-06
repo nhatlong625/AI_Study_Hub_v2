@@ -10,7 +10,7 @@ const ICON_MAP = {
 
 const EMPTY_FORM = { name: '' };
 const EMPTY_COURSE_FORM = { name: '', code: '', instructor: '', status: 'Active' };
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/$/, '');
+import { API_BASE_URL as API_BASE } from '../../config/api';
 
 function formatDocumentSize(bytes) {
   const value = Number(bytes || 0);

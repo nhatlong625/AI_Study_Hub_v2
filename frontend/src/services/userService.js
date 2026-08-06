@@ -33,18 +33,29 @@ export const userService = {
   // Plan
   getPlan: (userId) => request(`/users/${userId}/plan`),
 
+  removeAvatar: (userId) =>
+    request(`/users/${userId}/avatar`, { method: "DELETE" }),
+
   // Profile
   getProfile: (userId) => request(`/users/${userId}`),
-  updateProfile: (userId, fullName) =>
+  // Nhận object { fullName, email }; email là tuỳ chọn. Vẫn chấp nhận chuỗi để
+  // không phá chỗ gọi cũ nào còn truyền thẳng tên.
+  updateProfile: (userId, data) =>
     request(`/users/${userId}`, {
       method: "PUT",
-      body: JSON.stringify({ fullName }),
+      body: JSON.stringify(
+        typeof data === "string" ? { fullName: data } : data,
+      ),
     }),
   deleteAccount: (userId) => request(`/users/${userId}`, { method: "DELETE" }),
 
-  // Stats — streak, study time, XP, storage
+  // Stats — streak, study time, storage
   getStats: (userId) => request(`/users/${userId}/stats`),
   getUserProfileStats: (userId) => request(`/users/${userId}/stats`),
+
+  // Recent activity — upload / read / quiz / chat, mới nhất trước
+  getActivity: (userId, limit = 10) =>
+    request(`/users/${userId}/activity?limit=${limit}`),
 
   // Report
   submitReport: (data) =>

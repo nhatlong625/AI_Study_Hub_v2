@@ -42,7 +42,7 @@ function getAvatarColor(name = "") {
 }
 
 const ITEMS_PER_PAGE = 9;
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/$/, "");
+import { API_BASE_URL as API_BASE } from "../../config/api";
 
 function documentFileUrl(documentId, action) {
   if (!documentId) return "";
@@ -928,7 +928,6 @@ export default function StudentLibraryCourseDetailPage() {
       {shareDoc && (
         <ShareDocumentModal
           doc={shareDoc}
-          userId={userId}
           onClose={() => setShareDoc(null)}
         />
       )}

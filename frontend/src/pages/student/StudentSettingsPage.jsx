@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { userService } from "../../services/userService";
 import { formatStorageMb } from "../../utils/formatStorage";
 import PageHeader from "../../components/common/PageHeader";
-import MajorSelector from "../../components/student/MajorSelector";
 
 function getCurrentUser() {
   try {
@@ -11,29 +10,6 @@ function getCurrentUser() {
   } catch {
     return {};
   }
-}
-
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(" ");
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function PlanBadge({ plan }) {
-  const colors = {
-    Pro: "bg-purple-100 text-purple-700 border-purple-200",
-    Plus: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    Basic: "bg-gray-100 text-gray-600 border-gray-200",
-  };
-  const cls = colors[plan] || colors.Basic;
-  return (
-    <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${cls}`}
-    >
-      ★ {(plan || "Basic").toUpperCase()}
-    </span>
-  );
 }
 
 function Toggle({ checked, onChange }) {
@@ -77,18 +53,9 @@ function Field({ label, children }) {
 }
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
+// Không có tab "Account": thông tin nhận dạng (avatar, tên, email, ngành) hiển thị
+// và sửa ở trang Profile, còn xoá tài khoản nằm trong Privacy & Security.
 const TABS = [
-  {
-    id: "account",
-    label: "Account",
-    desc: "Profile and account info",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-  },
   {
     id: "preferences",
     label: "Preferences",
@@ -145,127 +112,6 @@ const TABS = [
     ),
   },
 ];
-
-// ── Edit Profile Modal ───────────────────────────────────────────────────────
-function EditProfileModal({ profile, userId, onClose, onSaved }) {
-  const [fullName, setFullName] = useState(profile?.fullName || "");
-  const [selectedMajorId, setSelectedMajorId] = useState(profile?.majorId || null);
-  const [avatarPreview, setAvatarPreview] = useState(profile?.avatarUrl || null);
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const fileInputRef = useRef(null);
-
-  function handleAvatarChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Image must be under 2MB");
-      return;
-    }
-    setAvatarFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setAvatarPreview(ev.target.result);
-    reader.readAsDataURL(file);
-  }
-
-  async function handleSave() {
-    if (!fullName.trim()) {
-      setError("Name cannot be empty");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      let newAvatarUrl = null;
-      if (avatarFile) {
-        const avatarRes = await userService.uploadAvatar(userId, avatarFile);
-        if (avatarRes.error) throw new Error(avatarRes.error);
-        newAvatarUrl = avatarRes.avatarUrl || null;
-      }
-      const updated = await userService.updateProfile(userId, fullName.trim());
-      const majorRes = await userService.updateMyMajor(selectedMajorId);
-      const finalProfile = {
-        ...updated,
-        majorId: selectedMajorId,
-        majorName: majorRes.majorName,
-        ...(newAvatarUrl ? { avatarUrl: newAvatarUrl } : {})
-      };
-      onSaved(finalProfile);
-      try {
-        const stored = JSON.parse(localStorage.getItem("user") || "{}");
-        const newData = { ...stored, fullName: fullName.trim(), majorId: selectedMajorId };
-        if (newAvatarUrl) newData.avatarUrl = newAvatarUrl;
-        localStorage.setItem("user", JSON.stringify(newData));
-      } catch { /* ignore */ }
-      window.dispatchEvent(new CustomEvent("user-profile-updated", {
-        detail: { fullName: fullName.trim(), majorId: selectedMajorId, ...(newAvatarUrl ? { avatarUrl: newAvatarUrl } : {}) }
-      }));
-      onClose();
-    } catch (err) {
-      setError(err.message || "Failed to update profile");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const initials = getInitials(fullName || profile?.fullName || "");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
-          <h3 className="text-lg font-black text-gray-900">Edit Profile</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <div className="px-6 py-5 flex flex-col gap-4">
-          <div className="flex flex-col items-center gap-2">
-            <div className="relative">
-              <div className="w-28 h-28 rounded-full bg-indigo-100 flex items-center justify-center text-3xl font-black text-indigo-600 select-none overflow-hidden">
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="avatar preview" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = "none"; }} />
-                ) : initials}
-              </div>
-              <button type="button" onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">JPG, PNG · Max 2MB</p>
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarChange} className="hidden" />
-          </div>
-          <Field label="Full Name">
-            <input autoFocus value={fullName} onChange={(e) => setFullName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              placeholder="Enter your full name"
-              className="w-full px-4 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-xl outline-none focus:border-indigo-400 transition-colors" />
-          </Field>
-          <Field label="Academic Major">
-            <div className="pt-1">
-              <MajorSelector
-                selectedMajorId={selectedMajorId}
-                onSelectMajor={(mId) => setSelectedMajorId(mId)}
-              />
-            </div>
-          </Field>
-          {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
-        </div>
-        <div className="flex justify-end gap-3 px-6 pb-6">
-          <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={saving || !fullName.trim()} className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-60">
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Delete Account Modal ─────────────────────────────────────────────────────
 function DeleteAccountModal({ userId, onClose }) {
@@ -347,91 +193,6 @@ function DeleteAccountModal({ userId, onClose }) {
         </div>
       </div>
     </div>
-  );
-}
-
-// ── Account Tab ──────────────────────────────────────────────────────────────
-function AccountTab({ profile, userId, onProfileUpdated }) {
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  const displayName = profile?.fullName || "";
-  const displayEmail = profile?.email || "";
-  const displayPlan = profile?.plan || "Basic";
-  const joinedAt = profile?.joinedAt || "";
-
-  return (
-    <>
-      {showEditModal && (
-        <EditProfileModal profile={profile} userId={userId} onClose={() => setShowEditModal(false)} onSaved={onProfileUpdated} />
-      )}
-      {showDeleteModal && (
-        <DeleteAccountModal userId={userId} onClose={() => setShowDeleteModal(false)} />
-      )}
-
-      <SectionCard title="Account Information">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-xl font-black text-indigo-600 select-none shrink-0 overflow-hidden">
-            {profile?.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="avatar" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = "none"; }} />
-            ) : getInitials(displayName)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-lg font-black text-gray-900">{displayName}</span>
-              <PlanBadge plan={displayPlan} />
-            </div>
-            <p className="text-sm text-gray-500">{displayEmail}</p>
-            {joinedAt && (
-              <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                Joined {joinedAt}
-              </p>
-            )}
-          </div>
-          <button onClick={() => setShowEditModal(true)}
-            className="px-4 py-2 text-sm font-bold text-indigo-600 border border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors shrink-0">
-            Edit Profile
-          </button>
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Personal Information">
-        <div className="flex flex-col gap-4">
-          <Field label="Full Name">
-            <input readOnly value={displayName} className="w-full px-4 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
-          </Field>
-          <Field label="Email">
-            <input readOnly value={displayEmail} className="w-full px-4 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
-          </Field>
-          <Field label="Academic Major">
-            <div className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl">
-              <span className="font-semibold">{profile?.majorName || "All Majors / Not Selected"}</span>
-              <button
-                type="button"
-                onClick={() => setShowEditModal(true)}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-              >
-                Change Major
-              </button>
-            </div>
-          </Field>
-        </div>
-      </SectionCard>
-
-      <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-6">
-        <h2 className="text-lg font-black text-red-600 mb-1">Danger Zone</h2>
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">Once you delete your account, there is no going back. Please be certain.</p>
-          <button onClick={() => setShowDeleteModal(true)}
-            className="px-4 py-2 text-sm font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors ml-4 shrink-0">
-            Delete Account
-          </button>
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -661,6 +422,7 @@ function PrivacyTab({ userId }) {
   const [privacySaved, setPrivacySaved] = useState(false);
   const [deletingChat, setDeletingChat] = useState(false);
   const [showDeleteChatConfirm, setShowDeleteChatConfirm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -717,6 +479,10 @@ function PrivacyTab({ userId }) {
             </div>
           </div>
         </div>
+      )}
+
+      {showDeleteModal && (
+        <DeleteAccountModal userId={userId} onClose={() => setShowDeleteModal(false)} />
       )}
 
       <SectionCard title="Password & Authentication">
@@ -801,6 +567,21 @@ function PrivacyTab({ userId }) {
           </button>
         </div>
       </SectionCard>
+
+      {/* Xoá tài khoản chuyển từ tab Account sang đây: tab đó sau khi bỏ phần
+          hiển thị trùng với trang Profile thì chỉ còn đúng nút này, mà đây lại là
+          hành động về an toàn tài khoản nên thuộc đúng nhóm với đổi mật khẩu,
+          phiên đăng nhập và xoá lịch sử chat. */}
+      <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-6">
+        <h2 className="text-lg font-black text-red-600 mb-1">Danger Zone</h2>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">Once you delete your account, there is no going back. Please be certain.</p>
+          <button onClick={() => setShowDeleteModal(true)}
+            className="px-4 py-2 text-sm font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors ml-4 shrink-0">
+            Delete Account
+          </button>
+        </div>
+      </div>
     </>
   );
 }
@@ -1091,17 +872,15 @@ function ReportTab({ userId }) {
 // ── Main component ───────────────────────────────────────────────────────────
 export default function StudentSettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "account";
+  // Link cũ dạng ?tab=account không còn tab tương ứng, nên mọi giá trị lạ đều rơi
+  // về tab đầu tiên thay vì render ra một vùng trắng.
+  const requestedTab = searchParams.get("tab");
+  const activeTab = TABS.some((t) => t.id === requestedTab)
+    ? requestedTab
+    : TABS[0].id;
 
   const localUser = getCurrentUser();
   const userId = localUser.userId || localUser.id;
-
-  const [profile, setProfile] = useState(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    userService.getProfile(userId).then(setProfile).catch(() => {});
-  }, [userId]);
 
   function setTab(id) {
     setSearchParams({ tab: id });
@@ -1133,7 +912,6 @@ export default function StudentSettingsPage() {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {activeTab === "account" && <AccountTab profile={profile} userId={userId} onProfileUpdated={(updated) => setProfile(updated)} />}
           {activeTab === "preferences" && <PreferencesTab userId={userId} />}
           {activeTab === "notifications" && <NotificationsTab userId={userId} />}
           {activeTab === "privacy" && <PrivacyTab userId={userId} />}

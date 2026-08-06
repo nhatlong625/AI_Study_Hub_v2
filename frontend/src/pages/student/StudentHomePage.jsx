@@ -2,6 +2,7 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
 import { useState, useMemo, useEffect } from "react";
 import { semesterApi } from "../../services/libraryApi";
+import MajorSelector from "../../components/student/MajorSelector";
 
 // ── Badge config per semester ────────────────────────────────
 const SEMESTER_BADGE = {
@@ -90,41 +91,6 @@ export default function StudentHomePage() {
       setSemesters(sortedSemesters);
       setStatsMap(nextStatsMap);
       setLoading(false);
-      return;
-
-      // Load public docs count + recent doc cho từng semester
-      // Gọi getPublicBySubject cho từng subject rồi gộp lại theo semester
-      sortedSemesters.forEach((sem) => {
-        if (!sem.subjects || sem.subjects.length === 0) return;
-
-        Promise.all(
-          sem.subjects.map((sub) =>
-            documentApi
-              .getPublicBySubject(sub.subjectId)
-              .catch(() => [])
-          )
-        ).then((results) => {
-          let totalFiles = 0;
-          let recentDoc = null;
-
-          results.forEach((docs) => {
-            totalFiles += docs.length;
-            docs.forEach((doc) => {
-              if (
-                !recentDoc ||
-                new Date(doc.uploadedAt) > new Date(recentDoc.uploadedAt)
-              ) {
-                recentDoc = doc;
-              }
-            });
-          });
-
-          setStatsMap((prev) => ({
-            ...prev,
-            [sem.semesterId]: { totalFiles, recentDoc },
-          }));
-        });
-      });
     }).catch((err) => {
       // Không để lỗi (401 hết hạn token, mất mạng...) làm kẹt trạng thái loading,
       // vì khi đó trang chỉ hiện "Loading..." vĩnh viễn trông như bị trắng.
@@ -151,24 +117,32 @@ export default function StudentHomePage() {
         title="Home"
         description="Browse all courses organized by semester"
         action={
-          <div className="relative">
-            <select
-              value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 outline-none cursor-pointer focus:border-indigo-400 transition-all"
-            >
-              <option>All Semesters</option>
-              {semesters.map((s) => (
-                <option key={s.semesterId}>{s.semesterName}</option>
-              ))}
-            </select>
-            <svg
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-              width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+          <div className="flex items-center gap-2.5">
+            {/* Bộ lọc ngành nằm ngay tại Home vì nó chỉ ảnh hưởng trang này.
+                Đặt ở topbar toàn cục khiến người dùng tưởng nó lọc cả app. */}
+            <MajorSelector
+              selectedMajorId={selectedMajorId}
+              onSelectMajor={(majorId) => outletCtx.setSelectedMajorId?.(majorId)}
+            />
+            <div className="relative">
+              <select
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 outline-none cursor-pointer focus:border-indigo-400 transition-all"
+              >
+                <option>All Semesters</option>
+                {semesters.map((s) => (
+                  <option key={s.semesterId}>{s.semesterName}</option>
+                ))}
+              </select>
+              <svg
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
         }
       />

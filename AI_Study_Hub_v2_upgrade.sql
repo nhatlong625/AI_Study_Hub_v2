@@ -29,15 +29,20 @@ BEGIN
     CREATE TABLE dbo.MAJOR
     (
         major_id    INT IDENTITY(1,1) NOT NULL,
-        major_code  NVARCHAR(20)      NOT NULL,
+        -- Nullable vi base schema khong co major_code va app khong dung cot nay.
+        major_code  NVARCHAR(20)      NULL,
         major_name  NVARCHAR(200)     NOT NULL,
         description NVARCHAR(1000)    NULL,
         is_active   BIT               NOT NULL CONSTRAINT DF_MAJOR_is_active DEFAULT 1,
         created_at  DATETIME2         NOT NULL CONSTRAINT DF_MAJOR_created_at DEFAULT SYSDATETIME(),
         updated_at  DATETIME2         NULL,
-        CONSTRAINT PK_MAJOR PRIMARY KEY (major_id),
-        CONSTRAINT UQ_MAJOR_code UNIQUE (major_code)
+        CONSTRAINT PK_MAJOR PRIMARY KEY (major_id)
     );
+
+    -- Filtered index thay cho UNIQUE constraint: UNIQUE chi cho phep dung 1 NULL.
+    -- Dung dynamic SQL: neu bang MAJOR da ton tai san (base schema, khong co major_code)
+    -- thi cau CREATE INDEX tinh se lam abort ca batch luc compile.
+    EXEC sp_executesql N'CREATE UNIQUE INDEX UX_MAJOR_code ON dbo.MAJOR(major_code) WHERE major_code IS NOT NULL';
 
     PRINT N'  [OK] Created table dbo.MAJOR';
 END
@@ -261,7 +266,11 @@ GO
   9. INDEX BO SUNG - Tang toc truy van cho Thu vien Cong khai & Bo loc da chieu
 ==============================================================================*/
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes
+-- DOCUMENT.deleted_at do DatabaseSchemaGuard them luc app khoi dong, khong co trong
+-- base schema. Neu chua co cot thi bo qua index nay, chay lai script sau se tao duoc.
+IF COL_LENGTH(N'dbo.DOCUMENT', N'deleted_at') IS NULL
+    PRINT N'  [SKIP] IX_DOCUMENT_visibility_subject - DOCUMENT.deleted_at chua ton tai';
+ELSE IF NOT EXISTS (SELECT 1 FROM sys.indexes
                WHERE object_id = OBJECT_ID(N'dbo.DOCUMENT')
                  AND name = N'IX_DOCUMENT_visibility_subject')
 BEGIN
@@ -286,21 +295,83 @@ GO
       - Du lieu mau giup chay test ngay
 ==============================================================================*/
 
-IF NOT EXISTS (SELECT 1 FROM dbo.MAJOR WHERE major_code = N'CNTT')
+-- Base schema (AI_Study_Hub.sql) tao MAJOR khong co major_code, unique theo major_name.
+-- Seed theo major_name de chay duoc tren ca hai bien the schema; chi set major_code khi
+-- cot do ton tai.
+IF NOT EXISTS (SELECT 1 FROM dbo.MAJOR WHERE major_name = N'Cong nghe Thong tin')
 BEGIN
-    INSERT INTO dbo.MAJOR (major_code, major_name, description)
+    INSERT INTO dbo.MAJOR (major_name, description)
     VALUES
-        (N'CNTT', N'Cong nghe Thong tin',
+        (N'Cong nghe Thong tin',
          N'Nganh dao tao chuyen sau ve Lap trinh phan mem, Mang may tinh, Tri tue nhan tao va Co so du lieu.'),
-        (N'QTKD', N'Quan tri Kinh doanh',
+        (N'Quan tri Kinh doanh',
          N'Nganh dao tao chuyen sau ve Quan tri chien luoc, Marketing, Tai chinh doanh nghiep va Khoi nghiep.'),
-        (N'NNA', N'Ngon ngu Anh',
+        (N'Ngon ngu Anh',
          N'Nganh dao tao chuyen sau ve Ngon ngu hoc, Bien phien dich, Giao tiep quoc te va Van hoc Anh.');
+
+    IF COL_LENGTH(N'dbo.MAJOR', N'major_code') IS NOT NULL
+        EXEC sp_executesql N'
+            UPDATE dbo.MAJOR SET major_code = CASE major_name
+                WHEN N''Cong nghe Thong tin'' THEN N''CNTT''
+                WHEN N''Quan tri Kinh doanh''  THEN N''QTKD''
+                WHEN N''Ngon ngu Anh''         THEN N''NNA''
+                END
+            WHERE major_name IN (N''Cong nghe Thong tin'', N''Quan tri Kinh doanh'', N''Ngon ngu Anh'')
+              AND major_code IS NULL';
 
     PRINT N'  [OK] Seeded 3 majors: CNTT, QTKD, NNA';
 END
 ELSE
     PRINT N'  [SKIP] Seed majors already exist';
+GO
+
+/*==============================================================================
+  11. SEED ACCOUNT: mark email da xac thuc
+      - Seed account khong the nhan mail xac thuc, ma AuthServiceImpl.login chi
+        bypass check is_verified cho admin => student2 khong dang nhap duoc.
+==============================================================================*/
+
+IF COL_LENGTH(N'dbo.[USER]', N'is_verified') IS NULL
+   OR COL_LENGTH(N'dbo.[USER]', N'verified_at') IS NULL
+    PRINT N'  [SKIP] Verify seed accounts - [USER].is_verified/verified_at chua ton tai';
+ELSE
+BEGIN
+    UPDATE dbo.[USER]
+    SET is_verified = 1,
+        verified_at = COALESCE(verified_at, SYSDATETIME())
+    WHERE email IN (N'admin2@aistudyhub.local', N'student2@aistudyhub.local')
+      AND is_verified = 0;
+
+    IF @@ROWCOUNT > 0
+        PRINT N'  [OK] Marked seed accounts as verified';
+    ELSE
+        PRINT N'  [SKIP] Seed accounts already verified';
+END
+GO
+
+/*==============================================================================
+  12. BANG MOI: DOCUMENT_READING (thoi gian doc tai lieu)
+      - Nguon du lieu cho Study Time va feed Recent Activity o trang Profile,
+        va cho tien do "da hoc" cua tung mon o Library.
+      - Khong dung STUDY_ACTIVITY vi bang do bat buoc summary_id/session_id/
+        question_id NOT NULL cung luc, khong bieu dien duoc hanh vi "chi doc".
+==============================================================================*/
+
+IF OBJECT_ID(N'dbo.DOCUMENT_READING', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DOCUMENT_READING
+    (
+        user_id      INT NOT NULL,
+        document_id  INT NOT NULL,
+        read_seconds INT NOT NULL CONSTRAINT DF_DOCUMENT_READING_seconds DEFAULT 0,
+        last_read_at DATETIME2 NOT NULL,
+        CONSTRAINT PK_DOCUMENT_READING PRIMARY KEY (user_id, document_id)
+    );
+
+    PRINT N'  [OK] Created table dbo.DOCUMENT_READING';
+END
+ELSE
+    PRINT N'  [SKIP] Table dbo.DOCUMENT_READING already exists';
 GO
 
 PRINT N'========================================';
