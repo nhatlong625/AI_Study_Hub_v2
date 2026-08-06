@@ -1,0 +1,1330 @@
+﻿/* ============================================================
+   AI_StudyHub - Curriculum database seed
+   Generated from Subjects_7nganh.xlsx (7 majors)
+   Target: Microsoft SQL Server (T-SQL)
+   ============================================================ */
+USE [AI_StudyHub];
+GO
+
+/* ---------- Schema ---------- */
+IF OBJECT_ID('dbo.CURRICULUM','U') IS NOT NULL DROP TABLE dbo.CURRICULUM;
+IF OBJECT_ID('dbo.SUBJECT','U')    IS NOT NULL DROP TABLE dbo.SUBJECT;
+IF OBJECT_ID('dbo.MAJOR','U')      IS NOT NULL DROP TABLE dbo.MAJOR;
+GO
+
+CREATE TABLE dbo.MAJOR (
+    major_id    INT IDENTITY(1,1) PRIMARY KEY,
+    major_code  NVARCHAR(20)  NOT NULL UNIQUE,
+    major_name  NVARCHAR(200) NOT NULL,
+    created_at  DATETIME      NOT NULL DEFAULT GETDATE()
+);
+GO
+
+CREATE TABLE dbo.SUBJECT (
+    subject_id    INT IDENTITY(1,1) PRIMARY KEY,
+    subject_code  NVARCHAR(20)  NOT NULL UNIQUE,
+    subject_name  NVARCHAR(300) NOT NULL,
+    description   NVARCHAR(MAX) NULL,
+    created_at    DATETIME      NOT NULL DEFAULT GETDATE()
+);
+GO
+
+CREATE TABLE dbo.CURRICULUM (
+    curriculum_id INT IDENTITY(1,1) PRIMARY KEY,
+    major_id      INT NOT NULL FOREIGN KEY REFERENCES dbo.MAJOR(major_id),
+    subject_id    INT NOT NULL FOREIGN KEY REFERENCES dbo.SUBJECT(subject_id),
+    semester_no   INT NULL,
+    display_order INT NULL,
+    created_at    DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT UQ_CURRICULUM UNIQUE (major_id, subject_id)
+);
+GO
+
+/* ---------- Seed: MAJOR ---------- */
+INSERT INTO dbo.MAJOR (major_code, major_name) VALUES (N'SE', N'Software Engineering');
+INSERT INTO dbo.MAJOR (major_code, major_name) VALUES (N'Marketing', N'Digital Marketing');
+INSERT INTO dbo.MAJOR (major_code, major_name) VALUES (N'Logistic', N'Logistics & Supply Chain Management');
+INSERT INTO dbo.MAJOR (major_code, major_name) VALUES (N'Finance', N'Finance');
+INSERT INTO dbo.MAJOR (major_code, major_name) VALUES (N'IA', N'Information Assurance');
+INSERT INTO dbo.MAJOR (major_code, major_name) VALUES (N'English', N'English Language');
+INSERT INTO dbo.MAJOR (major_code, major_name) VALUES (N'AI', N'Artificial Intelligence');
+GO
+
+/* ---------- Seed: SUBJECT (one row per unique code) ---------- */
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ACC101', N'Principles of Accounting_NguyÃªn lÃ½ káº¿ toÃ¡n', N'Main objectives - upon completion, students should:
+- Clearly understand the ideas, principles and techniques of accounting;
+- Gain the knowledge and tools to better understand business performance issues and the decisions and problems managers face;
+- Understand the important role of accounting and finance in all organizations and jobs, and its link with increasingly sophisticated IT systems.
+Specific objectives:
+- Recognize and organize accounting transactions;
+- Classify and calculate revenue, cost, and profit or loss correctly within an account;
+- Prepare comprehensive and accurate financial statements.
+Description: The content is structured into twelve chapters covering Financial Accounting, Management Accounting and Business Finance. Topics include business transactions, financial statement format and analysis, inventory and accounts receivable, types of assets and liabilities, costing classification, master budget and capital budgeting. A key feature is the integration of AI tools and applications, enabling students to ask constructivist questions while maintaining critical thinking and originality.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ACC302', N'Managerial Accounting_Káº¿ toÃ¡n quáº£n trá»‹', N'Managerial Accounting is a sub-area of accounting concerned with the information needed to effectively plan and control company operations and make good business decisions.
+The overall objective is to provide students with the concepts and tools needed to understand and effectively use managerial accounting information.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ACC305', N'Financial Statement Analysis_PhÃ¢n tÃ­ch bÃ¡o cÃ¡o tÃ i chÃ­nh', N'Provides a framework for interpreting, analyzing and evaluating financial statements from the viewpoints of creditors, owners, investment firms and others, so users of accounting information understand a business''s strengths and weaknesses, the impact of general and industry-specific conditions, the behavior of financial markets, and credit/lending and equity-investment criteria on present and future financial condition.
+After completing the course, students can:
+- Be familiar with the organization and disclosure of reported information;
+- Evaluate core accounting issues relevant to financial statement analysis, quantitatively and qualitatively;
+- Apply a framework for forecasting future earnings and financial performance;
+- Evaluate business financial performance using quantitative and qualitative techniques;
+- Use financial statement information in a modeling context.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'AIC211', N'AI for Cybersecurity_Tri tuá»‡ nhÃ¢n táº¡o cho An ninh máº¡ng', N'Provides foundational knowledge of machine learning (ML) and AI techniques for solving cybersecurity problems.
+- Focuses on modeling security challenges as ML problems, processing and representing cybersecurity data (system logs, network traffic, security events, endpoint telemetry), and building and evaluating models to track, monitor, detect and prevent cyber threats;
+- Combines theoretical foundations (supervised/unsupervised learning, classification, regression, anomaly detection, model evaluation, overfitting, ML pipelines) with hands-on Python labs using popular libraries such as scikit-learn and introductory deep learning;
+- Students work with real-world cybersecurity datasets on tasks such as intrusion detection systems (IDS), malware classification and phishing URL/email detection.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'APO201c', N'Advanced Python with OOP_Láº­p trÃ¬nh hÆ°á»›ng Ä‘á»‘i tÆ°á»£ng vá»›i Python', N'By the end of the course, students understand object-oriented programming (OOP) and can apply these principles effectively using Python.
+- Design and implement classes, use inheritance and polymorphism, and understand the benefits of encapsulation;
+- Gain practical experience building graphical user interfaces (GUIs) to enhance user interaction and visualization;
+- Learn concurrent programming, writing multi-process programs that leverage modern processors for speed and efficiency;
+- Explore the fundamentals of network systems and develop networked applications, including client-server programs, using socket programming in Python.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'BDT202c', N'Business Digital Transformation_Chuyá»ƒn Ä‘á»•i sá»‘ trong kinh doanh', N'Introduces the concepts and practices of digital transformation in business â€” how organizations apply digital technologies to change their operations, processes and business models. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'BEN_COM*1', N'1st combo* course_Há»c pháº§n thá»© 1 cá»§a combo*', N'A course in an elective combo for the English Language program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'BEN_COM*2', N'2nd combo* course_Há»c pháº§n thá»© 2 cá»§a combo*', N'A course in an elective combo for the English Language program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'BEN_COM*3', N'3rd combo* course_Há»c pháº§n thá»© 3 cá»§a combo*', N'A course in an elective combo for the English Language program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'BEN_COM*4', N'4th combo* course_Há»c pháº§n thá»© 4 cá»§a combo*', N'A course in an elective combo for the English Language program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'BEN_GRA_ELE', N'BEN Graduation Elective_Há»c pháº§n tá»‘t nghiá»‡p lá»±a chá»n ngÃ nh NgÃ´n ngá»¯ Anh', N'A graduation-phase elective for the English Language program; students select a subject to complete their graduation requirements.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'BKG303', N'Investment Project Appraisal_Tháº©m Ä‘á»‹nh dá»± Ã¡n Ä‘áº§u tÆ°', N'Covers the appraisal and evaluation of investment projects, including assessing the financial feasibility, costs, benefits and risks of proposed investments. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'CEA201', N'Computer Organization and Architecture_Tá»• chá»©c vÃ  Kiáº¿n trÃºc mÃ¡y tÃ­nh', N'An introduction to computer architecture and organization, covering both the physical design (organization) and logical design (architecture) of the computer.
+Main contents: the organization of a simple stored-program computer (CPU, buses and memory); instruction sets, machine code and assembly language; assembly conventions generated by compilers; floating-point representation; hardware organization of simple processors; address translation and virtual memory; and introductory examples of I/O devices, interrupt handling and multi-tasking.
+Chapters covered: Computer Evolution and Performance; Computer Function and Interconnection; Cache Memory; Internal Memory; External Memory; Input/Output; Operating System Support; Instruction Sets (Characteristics and Functions); Processor Structure and Function; Reduced Instruction Set Computers; Instruction-Level Parallelism and Superscalar Processors; Parallel Processing; Multicore Computers.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'CHN113', N'Elementary Chinese 1_HÃ¡n ngá»¯ sÆ¡ cáº¥p 1', N'Course objectives:
+- Equip students with about 150 vocabulary items and 45 basic grammar structures in Chinese at a level equivalent to HSK1;
+- Provide about 45 everyday communication situations: basic greetings; asking names, age, nationality, workplace; introducing people and abilities; describing time, place and weather; expressing food preferences, shopping and travel needs; talking about past, present and future events; and making requests for permission;
+- Introduce at least 3 traditional aspects of Chinese culture, including how to ask age and names and common means of communication.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'CHN123', N'Elementary Chinese 2_HÃ¡n ngá»¯ sÆ¡ cáº¥p 2', N'Course objectives:
+- Equip students with about 150 vocabulary items and 45 basic grammar structures in Chinese at a level equivalent to HSK2;
+- Provide about 60 everyday communication situations: making suggestions, conclusions or solutions; asking the cause of events; describing details of objects; commenting on and evaluating the result and state of an action; and comparing objects;
+- Introduce at least 3 traditional aspects of Chinese culture: table manners, tea-drinking culture, and Lunar New Year.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'CRY303c', N'Applied Cryptography_Máº­t mÃ£ á»©ng dá»¥ng', N'An introduction to applied cryptography and its relationship to secure systems.
+- Students learn to make and break codes and ciphers;
+- They gain a solid understanding of major concepts in applied cryptography: plaintext, encryption, ciphertext, block ciphers, decryption, public-key cryptosystems, hash functions, digital signatures, authentication, key management and cryptographic protocols, as part of securing digital systems.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'CSD201', N'Data Structures and Algorithms', N'Upon finishing the course, students can:
+1) Knowledge (ABET e) - understand:
+- The connection between data structures and their algorithms, including complexity analysis;
+- Data structures in the context of object-oriented program design;
+- How data structures are implemented in an OO language such as Java.
+2) Ability (ABET e):
+- Organize and manipulate basic structures: array, linked list, tree, heap, hash;
+- Use algorithms for traversing, sorting and searching on these structures;
+- Select a suitable algorithm to solve a practical problem.
+3) Ability (ABET k):
+- Use Java to solve problems;
+- Use the Eclipse tool to develop Java programs;
+- Implement Java programs to solve practical problems based on the studied algorithms.
+4) Others (ABET i) - improve study skills such as academic reading and information searching.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'CSD203', N'Data Structures and Algorithm with Python_Cáº¥u trÃºc dá»¯ liá»‡u vÃ  giáº£i thuáº­t vá»›i Python', N'Introduces the basic concepts of data structures and algorithms using Python.
+Topics include:
+- The basics of algorithm analysis;
+- Basic data structures: stack, queue, linked list, hashtable and tree;
+- Recursion;
+- Important applications of these data structures and algorithms.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'CSI106', N'Introduction to Computer Science_Nháº­p mÃ´n khoa há»c mÃ¡y tÃ­nh', N'Provides an overview of computer fundamentals, covering all areas of computer science in breadth.
+Major instructional areas:
+- The Von Neumann model and computer components;
+- Numbering systems and data representation;
+- Data types and operations on data;
+- Computer networking and the internet;
+- Operating systems;
+- Basic algorithms and their representation;
+- Data structures and file structures;
+- Database concepts;
+- Software engineering;
+- Computing security and ethics;
+- Introduction to Artificial Intelligence (additional learning).');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'DBI202', N'Introduction to Databases_CÃ¡c há»‡ cÆ¡ sá»Ÿ dá»¯ liá»‡u', N'Knowledge of database systems is an essential part of a computer science education, as database management has evolved from a specialized application into a central component of modern computing.
+The course covers:
+- Basic concepts of database management;
+- Database design;
+- Database languages;
+- Database-system implementation.
+Based on these, it emphasizes how to organize, maintain and efficiently retrieve data and information from a DBMS.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'DMA301m', N'Digital Marketing Analytics_PhÃ¢n tÃ­ch marketing sá»‘', N'Focuses on digital marketing analytics â€” measuring, analysing and interpreting data from digital marketing channels to inform marketing decisions. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'DMS301m', N'Digital Marketing Strategy_Chiáº¿n lÆ°á»£c marketing sá»‘', N'Covers the planning and development of digital marketing strategy across online channels to achieve business and marketing objectives. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'DTG111', N'Visual Design Tools 1_CÃ´ng cá»¥ thiáº¿t káº¿ trá»±c quan 1', N'Introduces visual design tools and their basic use for creating visual and graphic materials. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EAL202c', N'Nghe tiáº¿ng Anh há»c thuáº­t', N'Covers the listening and speaking skills non-native English-speaking students need to succeed in English-speaking colleges and universities (also useful for native speakers and anyone improving listening comprehension).
+- Students learn to listen to class lectures and take notes more effectively;
+- They improve speaking skills for common tasks such as class discussions and presentations;
+- In the capstone, students create a video presentation on an academic topic.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EAW301', N'Viáº¿t tiáº¿ng Anh há»c thuáº­t Academic English Writing', N'Provides a systematic introduction to the principles and conventions of academic writing, with a thorough analysis of common tasks focusing on paragraph and essay development.
+By the end of the course, students can:
+- Analyze the organization and structure of academic paragraphs and essays;
+- Understand and apply the conventions and norms of academic writing;
+- Develop critical thinking, analytical and reasoning skills to construct well-supported arguments;
+- Produce different genres of academic essays: cause/effect, process, comparison/contrast, argumentative, problem/solution and classification;
+- Plan, draft, revise and edit writing effectively to produce coherent, well-structured texts, using a flexible student-centered approach.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ECB101', N'Culture of English-Speaking Countries_VÄƒn hÃ³a cÃ¡c nÆ°á»›c nÃ³i tiáº¿ng Anh', N'Introduces students to significant features of cultural, social, political and artistic life in modern Britain and different aspects of American cultural and socio-political life (the American Dream and identity, race, immigration, religion, and the global transmission of American culture).
+- Students develop a broader, deeper understanding of British and American culture;
+- The course integrates scholarly texts and up-to-date multimedia, letting students engage critically with key theoretical concepts and their contemporary evolutions;
+- Learning happens through active participation, independent study, project-based assignments, group presentations, debates and creative multimedia tasks (including responsible use of AI tools);
+- Students develop academic reading and writing, analytical thinking, cultural awareness, teamwork and oral communication.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ECC302c', N'Cross-cultural Communication_Giao tiáº¿p trong mÃ´i trÆ°á»ng Ä‘a vÄƒn hoÃ¡', N'Explores cross-cultural communication â€” communicating effectively with people from different cultural backgrounds in academic and professional settings. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ECO102', N'Business Environment_MÃ´i trÆ°á»ng kinh doanh', N'Objective: improve economic literacy along with critical-thinking and problem-solving skills to explain and predict economic issues.
+Description: Economics is the study of how society manages its scarce resources, divided into microeconomics and macroeconomics.
+- While macroeconomics studies aggregate national and international economic activity, this course - microeconomics - focuses on the behavior of individual economic agents;
+- It studies how households (individuals), businesses (firms) and the government make decisions given scarce resources;
+- It examines the interactions among market participants and their impact on economic benefits and the economy;
+- Because most of this activity occurs in markets, the course also focuses on how markets work.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ECO111', N'Microeconomics_Kinh táº¿ vi mÃ´', N'Economics is the study of how society manages its scarce resources, divided into microeconomics and macroeconomics.
+While macroeconomics studies aggregate national and international economic activity, this course - microeconomics - focuses on the behavior of individual economic agents.
+- It studies how households (individuals), businesses (firms) and the government make decisions given scarce resources;
+- It examines the interactions among these market participants and how those interactions affect their economic benefits and the economy;
+- Because most of this activity occurs in markets, the course also focuses on how markets work.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ECO121', N'Macroeconomics_Kinh táº¿ vÄ© mÃ´', N'Economics is the study of how society manages its scarce resources, divided into microeconomics and macroeconomics.
+While microeconomics focuses on individual economic agents, this course - macroeconomics - studies how economists measure macroeconomic variables and covers:
+- Determination of national output and economic growth;
+- Unemployment, inflation, interest rates and exchange rates;
+- Discussion and assessment of the effectiveness of monetary and fiscal policies under different scenarios.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ECR301', N'Ká»¹ nÄƒng Ä‘á»c tÆ° duy pháº£n biá»‡n tiáº¿ng Anh Critical Reading in English', N'Students develop and apply critical reading skills through the analysis of texts from authentic sources (journals, newspapers, magazines and websites) across a variety of academic disciplines.
+- Students develop comprehension while forming a reasoned assessment of the effectiveness and validity of the text;
+- Students are encouraged to use AI and digital tools to enhance learning, gaining benefits in efficiency, accuracy, personalized learning and future-ready skills.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ELI302', N'PhiÃªn dá»‹ch tiáº¿ng Anh 1 English Interpretation 1', N'English Interpretation 1 â€” develops foundational skills for interpreting between English and Vietnamese. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ELI402', N'PhiÃªn dá»‹ch tiáº¿ng Anh 2 English Interpretation 2', N'English Interpretation 2 â€” builds on ELI302 to further develop interpreting skills between English and Vietnamese. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ELR301', N'Research Methods_PhÆ°Æ¡ng phÃ¡p nghiÃªn cá»©u', N'Introduces research methods for language and linguistics studies, including how to design and conduct academic research. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ELT302', N'BiÃªn dá»‹ch tiáº¿ng Anh 1 English Translation 1', N'English Translation 1 â€” develops foundational skills for translating between English and Vietnamese. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ELT402', N'BiÃªn dá»‹ch tiáº¿ng Anh 2 English Translation 2', N'English Translation 2 â€” builds on ELT302 to further develop translation skills between English and Vietnamese. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EMP301', N'HÃ¬nh thÃ¡i há»c tiáº¿ng Anh English Morphology', N'Objectives: Helps students methodically learn the fundamentals of morphology - morphemes, allomorphs and morphological processes - equipping them to analyze word structures. Students apply key theoretical frameworks (e.g. Lexical Morphology, Distributed Morphology) to analyze linguistic data and explore how morphological processes interact with syntax, focusing on word formation and sentence structure.
+Description: Provides a comprehensive overview of the fundamentals of morphology and its role in linguistics.
+- Students explore the functions of words, dictionaries and the mental lexicon in morphological analysis;
+- They gain insight into processes of lexeme formation such as derivation and compounding and understand how new words are created;
+- The course addresses the interaction of morphology with syntax and other levels of linguistic structure.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENB302', N'Viáº¿t tiáº¿ng Anh trong kinh doanh Business English Writing', N'Business English Writing â€” develops skills for writing English documents and correspondence in business contexts. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENG303', N'Ngá»¯ phÃ¡p tiáº¿ng Anh nÃ¢ng cao', N'Consolidates and enhances students'' grammatical knowledge by exposing them to grammar as used in real-life situations.
+- Offers comprehensive explanations of grammatical forms and meanings and contextualized practice of various structures;
+- Develops students'' use of structures and their critical thinking through communicative activities;
+- Teaches how to recognize common grammatical errors in written work and apply learned grammar in writing;
+- Uses a flipped-classroom approach, with students engaging core grammar concepts independently before class and leveraging AI tools to support grammar learning, practice and writing.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENM302', N'Business English - Level 1_Tiáº¿ng Anh ThÆ°Æ¡ng máº¡i - Cáº¥p 1', N'Helps students further improve their ability to communicate in English across a wide range of business and business-related situations, and develop the knowledge and skills needed to succeed in business.
+Enhanced with supplementary activities aligned with the Common European Framework of Reference for Languages, the course helps students:
+- Communicate effectively in discussions, meetings, negotiations and socialization events;
+- Acquire and use professional skills including telephoning, presentations, correspondence, decision-making and problem-solving;
+- Enrich knowledge of business trends in a fast-changing world;
+- Apply AI tools effectively and ethically to support business communication, research, language enhancement and workplace tasks;
+- Enhance employability.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENM402', N'Business English - Level 2_Tiáº¿ng Anh ThÆ°Æ¡ng máº¡i - Cáº¥p 2', N'Helps students further improve their ability to communicate in English across a wide range of business situations at upper-intermediate level, and develop the knowledge and skills to succeed in business.
+Enhanced with activities aligned to CEFR B2+ level, the course helps students:
+- Communicate effectively in discussions, meetings, negotiations and socialization events;
+- Acquire and use professional skills including telephoning, presentations, correspondence, decision-making and problem-solving;
+- Enrich knowledge of business trends in a fast-changing world;
+- Enhance employability.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENP203', N'Ngá»¯ Ã¢m vÃ  Ã¢m vá»‹ há»c tiáº¿ng Anh English phonetics and phonology', N'Helps students develop clear, intelligible English pronunciation with a neutral and comprehensible accent.
+- Recognize and produce individual English consonant sounds, including place and manner of articulation, voicing contrasts, aspiration and difficult contrasts (e.g. /Î¸/-/s/, /Êƒ/-/s/, /r/-/l/);
+- Identify the diversity of sound systems and distinguish segmental features;
+- Recognize and produce correct word stress, sentence stress, weak forms, linking and rhythm;
+- Use AI-assisted tools (e.g. ELSA, SpeechAce, Speechling) for instant feedback and shadowing practice with AI-generated audio to improve naturalness and fluency;
+- Diagnose personal listening and pronunciation weaknesses.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENT503', N'English 6 (Summit 2)', N'An advanced English course refining learners'' ability to communicate with precision, fluency, and cultural sophistication in academic and professional settings.
+In this course, students:
+- Synthesize ideas from diverse authentic sources;
+- Analyze global and ethical issues;
+- Evaluate meaning, bias, and rhetorical stance in complex spoken and written texts;
+- Focus on persuasive writing, academic discussion, and critical thinking;
+- Apply technology and AI tools to enhance research and collaboration;
+- Demonstrate leadership, professionalism, and lifelong learning for global engagement.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENW492c', N'Academic Writing Skills_Ká»¹ nÄƒng viáº¿t há»c thuáº­t', N'Develops academic writing skills, including planning, structuring and producing academic texts. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ENW493c', N'Research Methods & Academic Writing Skills_PhÆ°Æ¡ng phÃ¡p nghiÃªn cá»©u & Ká»¹ nÄƒng viáº¿t há»c thuáº­t', N'Provides a comprehensive framework for mastering academic research methods and writing skills.
+- Five courses progressively guide learners through the entire research process, from fundamental research methods to conducting independent research;
+- Learners develop critical skills in forming research questions, choosing appropriate methodologies, and gathering and analyzing data;
+- Learners also learn how to structure research findings and present them in a clear, academic format.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EPE301c', N'Professional Ethics_Äáº¡o Ä‘á»©c trong cÃ´ng viá»‡c', N'Covers professional ethics â€” ethical principles and responsible conduct in the workplace and professional practice. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EPG301', N'Ngá»¯ dá»¥ng há»c Tiáº¿ng Anh', N'English Pragmatics â€” studies how meaning is conveyed and interpreted in context, including implicature, speech acts and language use in communication. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ERW413', N'Ká»¹ nÄƒng viáº¿t nghiÃªn cá»©u tiáº¿ng Anh 1 English Research Writing Skills 1', N'Objectives: Helps students develop critical reading, thinking and writing skills across various academic topics, so they can read, think and write better at an upper-intermediate level through active interaction with different kinds of texts.
+Description: "Read, Think & Write 1" combines reading and writing in one course to help students read from a writer''s viewpoint and write with a reader in mind.
+- Provides a systematic introduction to and in-depth analysis of integrating reading and writing skills;
+- Offers a cohesive instructional framework to accelerate college readiness;
+- Covers annotation and vocabulary, previewing texts and topics, main ideas and thesis statements, supporting details, text purposes and patterns, organizing/drafting/summarizing, titles/introductions/conclusions, and inferences and tone.
+Prerequisite: passed EAW301 and ECR301 (or equivalents).');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ERW423', N'Ká»¹ nÄƒng viáº¿t nghiÃªn cá»©u tiáº¿ng Anh 2 English Research Writing Skills 2', N'English Research Writing Skills 2 â€” develops advanced skills for writing academic research texts in English. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ESL301', N'NgÃ´n ngá»¯ há»c xÃ£ há»™i Sociolinguistics', N'Sociolinguistics â€” studies the relationship between language and society, including variation, dialects and language use across social groups. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EST301', N'CÃº phÃ¡p há»c Tiáº¿ng Anh English Syntax', N'English Syntax â€” studies the structure of English sentences, including phrases, clauses and grammatical relationships. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EXE101', N'Experiential Entrepreneurship 1_Tráº£i nghiá»‡m khá»Ÿi nghiá»‡p 1', N'Provides students with essential knowledge and tips for starting a start-up efficiently and effectively, covering the most important aspects of modern entrepreneurship.
+- Students learn by watching videos shared by prolific startup founders, with a weekly face-to-face session led by a business-administration lecturer who recaps and checks understanding of each week''s topic;
+- Students are grouped into teams of 4-6, each formed from at least 2 different majors;
+- Each team develops a startup idea and works on the project with guidance from instructors and mentors throughout the course;
+- Seminars and workshops feature guest entrepreneurs and venture capitalists sharing their experience and perspectives on the startup world.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'EXE201', N'Experiential Entrepreneurship 2_Tráº£i nghiá»‡m khá»Ÿi nghiá»‡p 2', N'In Experiential Entrepreneurship 2, student groups develop the product/service for the start-up idea prepared in Experiential Entrepreneurship 1, deploy sales and find real customers for their products/services.
+- There is no mandatory content, only a list of suggested lectures/talks students can view for useful tips and experiences in realizing their project;
+- Seminars and workshops on related topics are planned and implemented each semester according to actual needs and circumstances.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIM302c', N'Financial modelling_MÃ´ hÃ¬nh tÃ i chÃ­nh', N'Covers financial modelling â€” building models to analyse financial data and support business and investment decisions. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN201', N'Monetary Economics and Global Economy_Kinh táº¿ tiá»n tá»‡ vÃ  kinh táº¿ toÃ n cáº§u', N'An intermediate-level course in macroeconomics, including topics in international, monetary and financial economics.
+- Provides a coherent framework for analyzing macroeconomic events such as business cycles (recessions and booms) and long-run growth, their impact on financial markets, and macroeconomic policy;
+- Applies theories to current economic events, with particular emphasis on the relationship between macroeconomic events and financial markets;
+- On completion, students are well-versed in macroeconomics and finance and can recognize the implications of real-life macroeconomic policy and events on global financial markets.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN202', N'Principles of Corporate Finance_TÃ i chÃ­nh doanh nghiá»‡p', N'Describes the corporation and its operating environment, and how corporate boards and management evaluate investment opportunities and arrange financing for them.
+Discussion spans varying conditions of aggregate demand, inflation, tax rates and interest rates, along with tools for valuing short-term movements in bond and equity valuations across markets.
+Topics include:
+- Introduction to corporate finance;
+- Financial statements, how they relate to each other and to cash flows to investors;
+- Ratio analysis and other tools to evaluate financial statements;
+- The time value of money, applied to bond and stock valuation;
+- The principal tools and decision rules for evaluating capital projects and capital budgeting.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN301', N'Financial Markets and Institutions / Thá»‹ trÆ°á»ng tÃ i chÃ­nh vÃ  cÃ¡c Ä‘á»‹nh cháº¿ tÃ i chÃ­nh', N'Studies the fundamentals of financial markets and instruments, the formation of modern financial markets, the practical application of financial instruments, and the types of financial institutions and their roles in the markets.
+On completion, students can:
+- Demonstrate a working knowledge of financial terms and concepts and analyze how financial markets and instruments operate to achieve economic objectives;
+- Understand and critically engage with the profits and risks faced by investors and strategies to control them;
+- Think independently, reflectively and analytically for work in regulating the financial sector, financial institutions or areas of government.
+Topics include debt, equity and derivative markets, and commercial-bank and non-bank operations.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN303', N'Advanced Corporate Finance_TÃ i chÃ­nh doanh nghiá»‡p nÃ¢ng cao', N'Provides continuous corporate finance theory on a firm''s financial decisions and working-capital management, and how to manage financial performance effectively to survive competition and takeover in a practical environment.
+On completion, students can:
+- Discuss theories and practices of capital-structure selection and payout policy;
+- Discuss practices to optimize the use of net working capital;
+- Design a long-term financial plan for an organization;
+- Critically evaluate finance theories, concepts, assumptions, limitations and arguments.
+Topics include capital budgeting, capital rationing and the cost of capital, working-capital management, capital raising, financial planning and forecasting, capital structure and dividend policy, and corporate risk management.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN402', N'Derivatives_CÃ´ng cá»¥ phÃ¡i sinh', N'A follow-up to FIN202 and FIN303. After the theoretical foundation established there, students gain in-depth knowledge of derivatives valuation and investment strategies.
+Topics include:
+- Futures and forwards valuation and strategies;
+- Option valuation and strategies;
+- Swaps;
+- Commodity forwards and futures;
+- Financial risk management.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN_COM*.4', N'Option 4', N'An elective option course in the Finance program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN_COM*1', N'Option 1', N'An elective option course in the Finance program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN_COM*2', N'Option 2', N'An elective option course in the Finance program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN_COM*3', N'Option 3', N'An elective option course in the Finance program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FIN_GRA_ELE', N'Graduation Elective - Finance', N'A graduation-phase elective for the Finance program; students select a subject to complete their graduation requirements.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'FRS301', N'Digital Forensics_Äiá»u tra sá»‘', N'Addresses the comprehension and application of digital forensic investigations.
+- Students evaluate and synthesize technical and legal issues relating to digital evidence;
+- They apply various skills and techniques, combined with numerous investigative software tools, to analyze seized electronic media;
+- Topics span key technical concepts, forensic labs and tools, collecting evidence and chain of custody, Windows system artifacts, antiforensics, legal aspects, internet and e-mail evidence, network forensics and mobile-device forensics;
+- Students are subject to a background investigation prior to admittance.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GLA301', N'Air Transport_Váº­n táº£i hÃ ng hÃ³a báº±ng Ä‘Æ°á»ng hÃ ng khÃ´ng', N'A practice-oriented course equipping students with the knowledge and skills to manage the full life cycle of air freight operations, focusing on how airlines, freight forwarders, ground handlers and shippers move high-value cargo safely, quickly and profitably in global supply chains.
+Across 11 chapters, students explore:
+- Industry structure and regulations, and the role of IATA cargo agents and forwarders;
+- Aircraft and ULD characteristics, airport and terminal facilities, and cargo handling processes;
+- Booking and acceptance procedures, and management of special cargo (perishables, dangerous goods);
+- Calculating air cargo rates and charges, and completing and interpreting airway bills;
+- The growing importance of cargo digitalization and automation.
+Real cases illustrate how air cargo supports trade and logistics development in Vietnam.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GLC301', N'E-Customs_Khai bÃ¡o háº£i quan Ä‘iá»‡n tá»­', N'Provides specialized, applied knowledge of electronic customs declaration and customs compliance in global logistics and supply-chain operations.
+It equips students with the legal, technical and procedural foundations to:
+- Understand customs administration;
+- Apply HS classification, customs valuation, origin-related preferential treatment, and tariff/tax rules;
+- Prepare and review e-customs declaration logic, supporting documents and declaration flows for standard import/export and selected customs regimes.
+Through scenario-based learning, guided discussion, document review and case analysis grounded in FIATA and VLI resources, students develop compliance awareness, professional responsibility and practical decision-making skills relevant to customs, freight forwarding and international trade.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GLH301', N'Goods and Insurance_HÃ ng hÃ³a vÃ  báº£o hiá»ƒm', N'Introduces fundamental knowledge about goods in commercial, transportation and logistics activities, and highlights the role of insurance in protecting goods against risks arising during storage, handling and transportation.
+The course focuses on:
+- Characteristics and classification of goods;
+- Requirements for packaging, labeling and storage;
+- Common risks associated with goods;
+- Basic principles of insurance and cargo insurance conditions;
+- The claims process in case of loss or damage.
+Through this, learners understand the relationship between the nature of different goods and their risk levels, enabling them to select appropriate insurance methods to minimize losses, support risk management and enhance efficiency in logistics and international trade.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GLI202', N'ThÆ°Æ¡ng máº¡i quá»‘c táº¿_International Trade', N'Introduces international trade â€” the principles, practices and operations involved in trade between countries. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GLT301', N'International Transport Management_Quáº£n trá»‹ váº­n táº£i quá»‘c táº¿', N'International Transport Management offers a comprehensive understanding of the essential role transportation plays in the global supply chain.
+- Introduces major transport modes (ocean, air, land, rail and multimodal), analyzing their functions, costs and operational efficiencies;
+- Covers landed cost, transportation''s impact on inventory and service trade-offs, derived demand and demand elasticity;
+- Examines the structure of global transport corridors (transport, trade and legal) and the strategic importance of IATA, FIATA and the International Chamber of Shipping;
+- Gives special attention to Incoterms, HS codes and trade agreements governing cross-border logistics;
+- Explores practical methods such as the Clarke and Wright Savings Algorithm for route optimization.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GL_COM*1', N'Option 1', N'An elective option course in the Logistics & Supply Chain program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GL_COM*2', N'Option 2', N'An elective option course in the Logistics & Supply Chain program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GL_COM*3', N'Option 3', N'An elective option course in the Logistics & Supply Chain program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GL_COM*4', N'Option 4', N'An elective option course in the Logistics & Supply Chain program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GL_GRA_ELE', N'Graduation Elective - GL', N'A graduation-phase elective for the Logistics & Supply Chain program; students select a subject to complete their graduation requirements.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'GSF301', N'Sea Transport and Forwarding_Váº­n táº£i, giao nháº­n hÃ ng hÃ³a báº±ng Ä‘Æ°á»ng biá»ƒn', N'A practice-oriented course equipping students with the knowledge and skills to manage the full life cycle of sea freight operations.
+- Focuses on how sea ports and terminals, freight forwarders, shipping lines and consignors work together to move cargo safely, quickly and profitably in global supply chains;
+- Uses real cases and examples to illustrate how sea freight forwarding supports trade and logistics development in Vietnam, linking theory to local industry practice;
+- By the end, students can design and evaluate sea freight solutions, communicate effectively with international partners, and position themselves for careers with shipping lines, logistics service providers and sea port operators.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'HCM202', N'Ho Chi Minh Ideology_TÆ° tÆ°á»Ÿng Há»“ ChÃ­ Minh', N'Course introduction: Ho Chi Minh ideology is the crystallization of the thousand-year traditions of national construction and defense of the Vietnamese people. It gathers intellectual values absorbed from East and West and creatively applies and develops Marxism-Leninism to Vietnamese practice. From a philosophical perspective, it is a comprehensive and profound system of views on the fundamental issues of the Vietnamese revolution, aiming at class, national and human liberation. Ho Chi Minh ideology has become a precious spiritual asset and a torch leading the Vietnamese revolution from one victory to another.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'HOD401', N'Ethical Hacking and Offensive Security', N'An introduction to the fundamentals of ethical hacking.
+- Students learn how hackers attack computers and networks, and how to protect Windows and Linux systems;
+- Legal restrictions and ethical guidelines are taught and enforced;
+- Students perform many hands-on labs, both attacking and defending, using port scans, footprinting, buffer overflow exploits, SQL injection, privilege escalation, Trojans and backdoors.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'HOD402', N'Ethical Hacking and Offensive Security_ThÃ¢m nháº­p thá»­ vÃ  phÃ²ng thá»§', N'Prepares learners with the Ethical Hacker skillset for offensive security, emphasizing that cybersecurity resilience is a necessity as threats evolve rapidly.
+- Learners become proficient in scoping, executing and reporting on vulnerability assessments, and recommending mitigation strategies;
+- Uses an engaging gamified narrative with real-world-inspired hands-on practice labs to build workforce-readiness skills and a solid foundation in offensive security;
+- On completion, learners can enter cybersecurity careers on the offensive (or related) side.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'HRM202c', N'Human Resource Management_Quáº£n trá»‹ nhÃ¢n sá»±', N'Derived from the Coursera "HRIC Human Resource Associate Professional Certificate" specialization.
+HR professionals are crucial to an organization''s success, playing an essential role in recruitment and management of talent, policy development and fostering a positive work environment.
+The program comprises five modules with videos, interactive activities, assessments and peer-reviewed projects covering HRM fundamentals. On completion, students understand how to:
+- Recruit, select and onboard new employees effectively;
+- Develop and implement employee policies and practices;
+- Support performance management, compensation and benefits;
+- Foster employee development and a positive workplace culture.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'HSF302', N'Working with Spring Framework', N'Upon completion, students should:
+1) Understand:
+- Basic concepts of JavaFX for building desktop applications;
+- Object-Relational Mapping (ORM) with JPA and how it simplifies database interactions;
+- The Spring Framework and Spring Boot as a comprehensive ecosystem for enterprise-level applications;
+- Spring''s dependency injection and web frameworks for building robust, scalable applications.
+2) Be able to:
+- Use the JPA ORM tool to map Java objects to database tables;
+- Use Spring''s dependency injection and web frameworks to build robust, scalable applications;
+- Develop cross-platform desktop applications with support for UI & UX.
+3) Work in a team and present group results.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA-000001c', N'Elective 1', N'An elective slot in the Information Assurance program; students choose a subject from the approved elective list.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA-000002', N'Elective 2', N'An elective slot in the Information Assurance program; students choose a subject from the approved elective list.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA-000003c', N'Elective 3', N'An elective slot in the Information Assurance program; students choose a subject from the approved elective list.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA-000004', N'Elective 4', N'An elective slot in the Information Assurance program; students choose a subject from the approved elective list.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IAA202', N'Risk Management in Information Systems_Quáº£n trá»‹ rá»§i ro trong há»‡ thá»‘ng thÃ´ng tin', N'Provides a comprehensive view of managing risk in information systems.
+- Covers the fundamentals of risk and risk management, plus in-depth, more comprehensive risk-management topics;
+- Teaches how to assess and manage risk based on defining an acceptable level of risk for information systems;
+- Discusses the elements of a business impact analysis (BIA), business continuity plan (BCP), disaster recovery plan (DRP) and computer incident response team (CIRT) plan.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IAM302', N'Malware Analysis and Reverse Engineering_PhÃ¢n tÃ­ch mÃ£ Ä‘á»™c vÃ  ká»¹ thuáº­t dá»‹ch ngÆ°á»£c', N'Provides an immersion into malware analysis and reverse engineering, an essential component of Information Assurance (IA), which protects information and systems by ensuring confidentiality, integrity, authentication, availability and non-repudiation.
+- Follows a progressive approach introducing relevant concepts and techniques while preparing students to become effective malware analysts;
+- Teaches a standard methodology for detecting, analyzing, reverse engineering and eradicating malware;
+- Covers reverse engineering malware from various sources and programming languages, including web-based threats.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IAM302t', N'Malware Analysis and Reverse Engineering', N'Provides an immersion into malware analysis and reverse engineering, an essential component of Information Assurance (IA), which protects information and systems by ensuring confidentiality, integrity, authentication, availability and non-repudiation.
+- Follows a progressive approach that introduces relevant concepts and techniques while preparing students to become effective malware analysts;
+- Teaches a standard methodology for detecting, analyzing, reverse engineering and eradicating malware;
+- Covers reverse engineering malware from various sources and programming languages, including web-based threats.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IAO202', N'Introduction to Information Assurance', N'Designed based on the Cisco CyberOps Associate course, for students seeking career-oriented, entry-level security analyst skills.
+- Targets technology-degree students and IT professionals pursuing a career in the Security Operation Center (SOC);
+- Exposes learners to the foundational knowledge required to detect, analyze and escalate basic cybersecurity threats using common open-source tools;
+- Aligns with the Cisco Certified CyberOps Associate (CBROPS) certification; candidates pass the 200-201 CBROPS exam to achieve it.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IAP301', N'Policy Development in Information Assurance_PhÃ¡t triá»ƒn chÃ­nh sÃ¡ch an toÃ n thÃ´ng tin', N'Delivers a logical sequence of discussions on major concepts and issues related to information assurance policy implementation.
+- Explores organizational objectives, threats, risk mitigation and cost-benefit analysis;
+- Students use industry-accepted methodologies to create practical security policy that communicates the organization''s asset-protection objectives.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IAP491', N'IA Capstone Project', N'A capstone project in which students, working in groups of 4-5, gain significant project experience integrating much of the material learned across the program, including requirements, design, human factors, professionalism and project management.
+- Students develop an IA solution using knowledge gained throughout the program, including risk assessment, analysis and management, implementation and quality assurance;
+- They may follow any suitable process model, must attend to quality issues, and must manage the project themselves using appropriate project-management techniques;
+- Success is determined largely by whether students have adequately solved their customer''s problem.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA_COM*1', N'Subject 1 of Combo*_Há»c pháº§n 1 cá»§a combo*', N'A course in an elective combo for the Information Assurance program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA_COM*2', N'Subject 2 of Combo*_Há»c pháº§n 2 cá»§a combo*', N'A course in an elective combo for the Information Assurance program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA_COM*3', N'Subject 3 of Combo*_Há»c pháº§n 3 cá»§a combo*', N'A course in an elective combo for the Information Assurance program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA_COM*4', N'Subject 4 of Combo*_Há»c pháº§n 4 cá»§a combo*', N'A course in an elective combo for the Information Assurance program; students choose a specialization combo and take its courses in sequence.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA_ELE2', N'IA Elective 2_IA Há»c pháº§n lá»±a chá»n 2', N'An elective slot in the Information Assurance program; students choose a subject from the approved elective list.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IA_GRA_ELE', N'Há»c pháº§n lá»±a chá»n Äá»“ Ã¡n tá»‘t nghiá»‡p chuyÃªn ngÃ nh An ToÃ n ThÃ´ng Tin_Graduation Elective for IA', N'A graduation-phase elective for the Information Assurance program, taken alongside the graduation project; students select a subject to complete their graduation requirements.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'IOT102', N'Internet of Things_Internet váº¡n váº­t', N'A 3-credit course with two parts: online and offline.
+- Content covers the basic concepts and applications of IoT, plus practical exercises on a learning KIT;
+- Students learn online and practice some parts at home;
+- Q&A sessions, guidance on important issues, and performance assessments are conducted in the classroom.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ITA203c', N'Information System Overview/Nháº­p mÃ´n há»‡ thá»‘ng thÃ´ng tin', N'An intensive, hands-on series of courses giving students the skills to:
+- Use conceptual frameworks to align IT investments with business strategy;
+- Assess the fit between business requirements and enterprise-system features;
+- Specify business requirements as information-system specifications;
+- Evaluate technological alternatives for developing the organization''s IT infrastructure.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'ITE302c', N'Ethics in IT_Äáº¡o Ä‘á»©c trong CNTT', N'Organizations and governments increasingly seek ethics professionals to minimize risk and guide decisions about designing inclusive, responsible and trusted technology.
+- An algorithm not designed and assessed against ethical standards can worsen inequity across race, gender and marginalized populations, and an ethics violation can devastate a company''s reputation and finances;
+- Knowledgeable ethics leaders are needed to navigate more than 160 frameworks and guidelines and select the best strategy to promote fairness and minimize risk;
+- This specialization is for learners who want to create and lead initiatives prioritizing ethical integrity in data-driven fields such as AI and data science, bridging the gap between theory and practice.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'JPD113', N'Elementary Japanese 1- A1.1_Tiáº¿ng Nháº­t sÆ¡ cáº¥p 1-A1.1', N'I. Orientation: Provides basic Japanese knowledge and skills at elementary level 1 (equivalent to A1) for students taking Japanese as a second foreign language.
+II. Objectives: On completion, students can:
+- Read and write the Japanese syllabaries (Hiragana and Katakana) fluently;
+- Master about 200 basic vocabulary items, the reading and writing of more than 30 kanji, and more than 20 basic grammar structures used in elementary conversation;
+- Understand and use familiar everyday expressions: self-introduction (name, nationality, occupation, hobbies), asking for locations, asking prices and ordering, talking about daily activities, and asking the working hours of organizations;
+- Practise teamwork and self-development through in-class group activities (role play) and extracurricular activities.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'JPD123', N'Elementary Japanese 1-A1.2_Tiáº¿ng Nháº­t sÆ¡ cáº¥p 1-A1.2', N'I. Orientation: Provides basic Japanese knowledge and skills at elementary level 1 (equivalent to A1.2) for students taking Japanese as a second foreign language; a continuation of JPD113.
+II. Objectives: On completion, students can:
+- Introduce their hometown: its characteristics, food, climate and famous places;
+- Talk with friends about plans or routine activities;
+- Invite friends to an activity, exchange information and reach agreement on a place and time;
+- Convey surrounding situations simply, make requests and propose doing something together;
+- Master nearly 300 basic vocabulary items, the reading and writing of more than 40 kanji, and nearly 30 basic grammar structures used in elementary conversation;
+- Practise teamwork and self-development through in-class group activities (role play) and extracurricular activities.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'LAB211', N'OOP with Java Lab', N'Focuses on basic problems related to Java programming skills.
+- Students implement all assignments by themselves in lab rooms;
+- Each assignment must be completed continuously within the defined time.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'LAW102', N'Business Law and Ethics Fundamentals_Luáº­t vÃ  Äáº¡o Ä‘á»©c kinh doanh', N'Description: Addresses the basic concepts of business law in the business environment, highlighting the legal and regulatory requirements by which people and companies conduct business, and the complexities and ambiguities of the law. It also focuses on business ethics, emphasizing appropriate behavior and treatment of business entities in global and local contexts.
+Objectives: On completion, students can:
+- Demonstrate knowledge of the legal system and basic principles of business law, and the relationship between ethics and regulations;
+- Compare the legal requirements for managing companies in the US and Vietnam and ethically evaluate the application of laws in business transactions;
+- Identify essential solutions for business disputes.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'LIT301', N'British & American Literature_VÄƒn há»c Anh & Má»¹', N'British & American Literature â€” studies representative works of British and American literature and develops skills in analysing setting, plot and characters. On FLM this course is delivered through guided reading of novels such as Jane Eyre, Oliver Twist, Saving Private Ryan and The Runaway Jury, with class discussions and a story-based project. (Brief summary based on the course title and reading list; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'LTG301', N'Dáº«n luáº­n ngÃ´n ngá»¯ Introduction to Linguistics', N'An introduction to the study of language (Introduction to Linguistics).
+- Provides a fundamental introduction to language study;
+- Builds a vocabulary for talking about language and a solid knowledge of how English works;
+- Presents major concepts in language study across all the key elements of language.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MAD101', N'Discrete mathematics_ToÃ¡n rá»i ráº¡c', N'Upon finishing the course, students must acquire:
+1) Knowledge (ABET a1):
+- Logical expressions and predicate logic;
+- Induction and recursive definition;
+- Algorithms, recursive algorithms and complexity;
+- Recurrence relations and divide-and-conquer algorithms;
+- Applications of integers and congruence in IT;
+- Set structures and maps, counting principles and combinatorics;
+- Terminology and properties of graphs, trees and weighted graphs, and their applications in IT.
+2) Skills (ABET a2):
+- Manipulate and produce equivalent logical expressions;
+- Prove simple mathematical propositions, including by induction;
+- Evaluate algorithm complexity;
+- Solve simple congruence equations;
+- Apply counting techniques to set cardinalities and counting problems;
+- Apply graph algorithms to solve graph-theory problems.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MAE101', N'Mathematics for Engineering_ToÃ¡n cho ngÃ nh ká»¹ thuáº­t', N'Upon finishing the course, students must acquire:
+1) Knowledge (ABET a1):
+- Basic concepts of single-variable calculus: limit, derivative, integral;
+- Linear systems of equations, matrices and their applications;
+- Vector spaces, basis and dimension, linear transformations and their applications;
+- The range of applications of calculus and algebra in science, technology, economics and finance.
+2) Skills (ABET a2):
+- Find limits, derivatives and integrals of single-variable functions;
+- Solve linear systems using row-reduced echelon form, Cramer''s Rule and inverse matrices;
+- Find determinants and inverses of matrices;
+- Find linear transformations in R^2 and R^3;
+- Find dimensions and bases of vector spaces;
+- Apply calculus and algebra to problems in science, technology, economics and finance.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MAS202', N'Applied Statistics for Business_Thá»‘ng kÃª á»©ng dá»¥ng trong kinh doanh', N'Focuses on data summaries and descriptive statistics, with a business focus. Content includes:
+- Introduction to a statistical computer package;
+- Probability: distributions, expectation, variance, covariance, portfolios and the central limit theorem;
+- Statistical inference for univariate data;
+- Statistical inference for bivariate data, including intrinsically linear simple regression models.
+Teaching is flexible, mixing traditional methods with project-based learning, problem-based learning and the flipped classroom.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MAS291', N'Statistics & Probability_XÃ¡c suáº¥t thá»‘ng kÃª', N'Upon finishing the course, students must acquire:
+1) Knowledge (ABET a1):
+- The fundamental principles of probability and their applications;
+- Frequently used probability distributions;
+- The basics of descriptive statistics;
+- Statistical inference: parameter estimation, hypothesis testing, regression and correlation.
+2) Skills (ABET a2):
+- Recognize simple statistical models and apply them to engineering problems;
+- Use at least one statistical software (Excel, Maxima) for problem solving;
+- Self-study skills (ABET i).');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MGT103', N'Introduction to Management_Nháº­p mÃ´n quáº£n lÃ½', N'Explores the managerial functions of management: planning, organizing, leading and controlling.
+- Provides basic management knowledge and skills and a comprehensive insight into the human-relations components of any managerial role, regardless of industry or function;
+- Examines various management theories and links them to current management practice in the world and Vietnam;
+- Uses interactive tools such as group exercises, case-study discussion, role-play activities and projects.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT101', N'Marketing Principles_NguyÃªn lÃ½ Marketing', N'Provides a strong foundation in marketing based on five key activities:
+- Identifying customer needs;
+- Providing the right products or services to meet those needs;
+- Assuring availability through the right distribution channels;
+- Using promotional activities to motivate purchase as effectively as possible;
+- Setting an appropriate price that maximizes firm profitability while maintaining customer satisfaction.
+Based on Philip Kotler''s Principles of Marketing, the course integrates AI tools for idea generation, document organization and practical application of marketing concepts (brainstorming, content structuring, creating marketing materials, basic analytics), while students retain full responsibility for originality, critical evaluation and refinement of their work.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT201', N'Consumer Behavior_HÃ nh vi ngÆ°á»i tiÃªu dÃ¹ng', N'Consumer Behavior â€” studies how individuals and groups make purchasing decisions and the factors influencing consumer choices. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT202', N'Services Marketing Management_Quáº£n trá»‹ Marketing dá»‹ch vá»¥', N'Services Marketing Management â€” covers the marketing and management of services, addressing the distinctive characteristics of services compared with physical products. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT208c', N'Social media marketing_Marketing máº¡ng xÃ£ há»™i', N'Social Media Marketing â€” covers planning and executing marketing activities on social media platforms. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT301', N'Marketing Research_NghiÃªn cá»©u Marketing', N'Marketing Research â€” covers the process of gathering, analysing and interpreting market data to support marketing decisions. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT304', N'Integrated Marketing Communications_Truyá»n thÃ´ng marketing tÃ­ch há»£p', N'Integrated Marketing Communications â€” covers coordinating advertising, promotion and other communication tools into a consistent marketing message. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT_COM*1', N'Option 1', N'An elective option course in the Digital Marketing program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT_COM*2', N'Option 2', N'An elective option course in the Digital Marketing program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT_COM*3', N'Option 3', N'An elective option course in the Digital Marketing program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT_COM*4', N'Option 4', N'An elective option course in the Digital Marketing program; the specific subject depends on the chosen specialization track.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MKT_GRA_ELE', N'Graduation Elective - Digital Marketing', N'A graduation-phase elective for the Digital Marketing program; students select a subject to complete their graduation requirements.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MLN111', N'Philosophy of Marxism â€“ Leninism_TriÃªÌt hoÌ£c MaÌc - LeÌ‚-nin', N'Course introduction: Philosophy of Marxism-Leninism studies dialectical materialist views on nature, society and the mind, making the dialectical-materialist worldview comprehensive. Applying and expanding the dialectical materialist perspective to social research, Marx introduced historical materialism and pointed out how to study the laws of social and natural development as governed by objective laws rather than subjective factors. The development of Marxism-Leninism philosophy has laid the foundation for studying history and social life in a scientific way.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MLN122', N'Political economics of Marxism â€“ Leninism_Kinh tÃªÌ chiÌnh triÌ£ MaÌc - LeÌ‚-nin', N'Course introduction: Political economics of Marxism-Leninism is an economic theory and scientific discipline on political economy developed by C. Marx, Engels and later Lenin. It focuses on the capitalist mode of production and the production and economic exchange relations consistent with it, thereby clarifying the nature and phenomena of economic processes and laying a foundation to solve matters related to the theories of Marxism-Leninism. The core of Marxist-Leninist political economy is Marx''s surplus value theory.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MLN131', N'Scientific socialism_Chá»§ nghÄ©a xÃ£ há»™i khoa há»c', N'Course introduction: Scientific socialism is one of the three parts of Marxism-Leninism. Based on the philosophical methodology of dialectical and historical materialism and on the scientific foundations of economic laws and relations, it scientifically explains the advent of the socialist revolution and the formation and development of the communist socio-economic form, associated with the historical mission of the working class, to liberate people and society.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'MSS301', N'Microservices with Spring Cloud', N'Upon completion, students should:
+1) Understand:
+- Microservices and microservices architecture;
+- The basics of Spring Cloud and its architecture;
+- Configuration and implementation using Spring Cloud;
+- Microservices architecture built with Spring Cloud;
+- Deployment of microservices-based applications using Docker and Spring Cloud tools.
+2) Be able to:
+- Explain microservices architecture and its benefits (scalability, resilience, fault tolerance);
+- Explain Spring Cloud and its architecture;
+- Configure and implement Spring Cloud in a project;
+- Design and implement a microservices architecture using Spring Cloud;
+- Design, build and deploy microservices-based applications using Docker and Spring Cloud tools.
+3) Work in a team and present group results.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'NWC204', N'Computer Networking_Máº¡ng mÃ¡y tÃ­nh', N'Designed based on the first course of the CCNA curriculum.
+Introduces the architectures, models, protocols and networking elements that connect users, devices, applications and data across the internet and modern computer networks - including IP addressing and Ethernet fundamentals.
+By the end of the course, students can:
+- Build simple local area networks (LANs) integrating IP addressing schemes and foundational network security;
+- Perform basic configurations for routers and switches.
+The course is organized into modules, each an integrated unit of content, activities and assessments targeting specific competencies; some foundational modules are not assessed but enable learning of concepts covered on the CCNA certification exam.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'NWC303', N'Network Connectivity_Káº¿t ná»‘i máº¡ng', N'Based on the Cisco Networking Academy CCNAv7 curriculum, for those seeking entry-level ICT jobs or prerequisites for more specialized skills.
+The CCNAv7 curriculum spans three courses - Introduction to Networks (ITN), Switching, Routing and Wireless Essentials (SRWE), and Enterprise Networking, Security and Automation (ENSA) - covering IP routing and switching fundamentals, network security and services, and network programmability and automation, with extensive hands-on practice.
+This course focuses on the SRWE portion: switching technologies and router operations supporting small-to-medium business networks, including wireless LANs (WLANs) and security.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OBE102c', N'Organizational Behavior_HÃ nh vi tá»• chá»©c', N'Organizational Behavior â€” studies how individuals and groups behave within organizations, including motivation, teamwork, leadership and organizational culture. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OJB202', N'On-the-job training_ÄÃ o táº¡o trong mÃ´i trÆ°á»ng thá»±c táº¿', N'On-the-job training â€” students gain practical experience in a real working environment at partner organizations. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OJE202', N'On-The-Job Training_ÄÃ o táº¡o trong mÃ´i trÆ°á»ng thá»±c táº¿', N'On-the-job training â€” students gain practical experience in a real working environment at partner organizations. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OJT202', N'On-The-Job Training_ÄÃ o táº¡o trong mÃ´i trÆ°á»ng thá»±c táº¿', N'Target:
+- Students get acquainted with the real working environment before completing the study program;
+- Students explore and expand their understanding of learned programs from a broader perspective;
+- Students gain rich learning experiences in an industrial and globalized environment.
+Implementation:
+Students do practical training at partnership enterprises signed with the University, with close cooperation between the enterprises and the University''s representative (Student Affairs Department). In the enterprise environment, students are assigned and directly managed on tasks, and their spirit, attitude and abilities are monitored and evaluated. At the end of the training, students are evaluated comprehensively by the enterprises and give feedback on the working environment.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OSG202', N'Operating Systems', N'By the end of this course, students will be able to understand:
+1) Background knowledge (ABET e): the role of the operating system, important OS concepts, OS mechanisms, and the main problems of operating systems.
+2) Practical skills (ABET k):
+- Use basic shell commands in Linux fluently;
+- Apply fundamentals of shell and C language on Linux;
+- Explore main OS problems through simulation exercises.
+3) Information searching, reading and selection skills (ABET i).
+4) Group working, documentation and presentation skills (ABET g).');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OSG203', N'Operating System_Há»‡ Ä‘iá»u hÃ nh', N'By the end of the course, students will be able to:
+1) Background knowledge (ABET e): understand the role and functions of an operating system; grasp key concepts such as kernels, file systems and process management; comprehend OS mechanisms including memory hierarchy and CPU roles; and identify and analyze the main problems and challenges in operating systems.
+2) Practical skills (ABET k): use basic and advanced shell commands in Linux fluently, develop proficiency in shell scripting, and solve key OS problems through practical exercises and simulations.
+3) Information searching, reading and selection skills (ABET i).
+4) Teamwork, documentation and presentation skills (ABET g).');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OSP201', N'Open Source Platform and Network Administration', N'An introduction to open source client/server networking and basic information security and assurance concepts, focusing on Linux as a platform and server operating system.
+- Introduces concepts related to the security of Linux platforms and applications, and methods to secure them and how to implement those methods;
+- Covers threats to Linux and other open source applications and the mitigation of risks;
+- Explains user account management and software management plans;
+- Examines the components of the Linux kernel and ways to address security breaches.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'OTP101', N'Orientation and General Training Program_Äá»‹nh hÆ°á»›ng vÃ  RÃ¨n luyá»‡n táº­p trung', N'The Orientation and General Training Program includes 4 modules:
+- Module 1 - Orientation: opening ceremony, health check and student cards, class arrangement and meetings, introduction to FPT Corporation, FPT University, functional departments, training regulations and information systems, study skills, and community-activity topics;
+- Module 2 - Military training: implementing the program prescribed by the Ministry of Education and Training;
+- Module 3 - Experience program: memoir research and review, seminars, experiential activities (sustainable development and community volunteering), and skill-building extracurriculars (e.g. First Aid and Emergency Response);
+- Module 4 - Vovinam: following the VOV114 outline.
+Objectives:
+- Guide students through procedures before a new semester;
+- Provide knowledge about FPT Corporation, FPT University and its supporting departments;
+- Introduce the curriculum, FU training model and regulations, and information systems to help students adapt;
+- Educate the fundamentals of military and national security and build patriotism and national pride;
+- Train willpower and improve physical strength, fitness and responsibility;
+- Foster team spirit, discipline and good attitudes toward friends, teachers and the learning environment;
+- Enhance student experience and community spirit through extracurricular and volunteering activities.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PEN', N'Preparation English_Tiáº¿ng Anh chuáº©n bá»‹', N'Preparation English â€” a foundational English course preparing students for the language level required in the main program.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PFP191', N'Programming Fundamentals with Python_CÆ¡ sá»Ÿ láº­p trÃ¬nh vá»›i Python', N'Introduces programming with an emphasis on realizing ideas, approaches, models and algorithms - essential in computer science education, research and production.
+- Python has emerged as a popular, powerful, multitasking and widely applicable language, especially in new fields such as AI, Fintech, Data Science and IoT;
+- The course covers essential aspects of programming: fundamental concepts, code design and the Python language;
+- It emphasizes object-oriented programming (OOP), given its importance for advanced software development and subsequent courses.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PHE_COM*1', N'Physical Education 1_GiÃ¡o dá»¥c thá»ƒ cháº¥t 1', N'Physical Education 1 â€” a physical training course helping students develop fitness and healthy exercise habits.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PHE_COM*2', N'Physical Education 2_GiÃ¡o dá»¥c thá»ƒ cháº¥t 2', N'Physical Education 2 â€” a physical training course continuing the development of fitness and sports skills.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PHE_COM*3', N'Physical Education 3_GiÃ¡o dá»¥c thá»ƒ cháº¥t 3', N'Physical Education 3 â€” a physical training course further developing fitness and sports skills.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PMG201c', N'Project Management', N'An intensive, hands-on series giving students the skills to ensure projects are completed on time and on budget while delivering the product users expect.
+- Builds a strong working knowledge of project-management basics that can be applied immediately to manage work projects;
+- By the end, students can identify and manage product scope, build a work breakdown structure, create a project plan and budget, define and allocate resources, and identify and manage risks;
+- Students are then able to manage project development end to end.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PRF192', N'Programming Fundamentals', N'Introduces basic computer systems and software-development methods, focusing on function-oriented programming design, coding, testing and programming discipline using the C language.
+Upon completion, students should have:
+1) Knowledge (ABET e):
+- Explain how to solve a real problem using a computer;
+- Understand basic computer systems and software development;
+- Understand programming concepts, focusing on procedural programming, testing, debugging and unit testing.
+2) Programming skills (ABET k):
+- Read and understand simple C programs;
+- Solve real problems using C.
+3) Effective learning methods (ABET i): academic reading, and individual and team-work behaviors.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PRJ301', N'Java Web application development', N'By the end of this course, students will be able to:
+a) Knowledge:
+- Understand core Java web technologies: Servlet and JSP, and the scope of shared state (session, application, request, page);
+- Develop and deploy their own websites using Java;
+- Understand and apply the MVC architecture for the web;
+- Apply JPA in Java websites;
+- Apply AI in their own Java website.
+b) Skills:
+- Develop basic web applications applying the MVC design pattern with Servlet/Filter as controller;
+- Create a simple web application demo using JPA.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PRM393', N'Mobile Programming', N'By the end of the course, students will have:
+- Understanding of the fundamental concepts of mobile programming with Flutter and Dart;
+- Experience using popular widgets and plugins to build cross-platform user interfaces;
+- Knowledge of state management, form handling, and navigation between screens;
+- The ability to apply asynchronous programming with Future and async/await;
+- The ability to integrate RESTful APIs to exchange data with servers, and store data locally using SharedPreferences and SQLite;
+- Proficiency in using Dart libraries and command-line tools to optimize development;
+- Knowledge of implementing mobile notification systems, including local and push notifications.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PRO192', N'Object-Oriented Programming', N'Introduces object-oriented programming. Students learn to build reusable objects, encapsulate data and logic within a class, inherit one class from another, and implement polymorphism.
+By the end, students can:
+- Compose technical documentation of a Java program using internal comments;
+- Adhere to OOP principles (encapsulation, polymorphism and inheritance) when writing code;
+- Trace the execution of Java program logic to determine what a program does or validate its correctness.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PRP201c', N'Python Programming [MOOC]', N'Introduces fundamental programming concepts using the Python programming language, including data structures, networked application program interfaces (APIs) and databases.
+- In the Capstone Project, students use the technologies learned throughout the course to design and create their own applications for data retrieval, processing and visualization.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'PWD301', N'Python Web Development_PhÃ¡t triá»ƒn Web vá»›i Python', N'Python Web Development â€” covers building web applications using the Python programming language. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'RMB302', N'Research Methods & Quantitative Analysis_PhÆ°Æ¡ng phÃ¡p nghiÃªn cá»©u vÃ  phÃ¢n tÃ­ch Ä‘á»‹nh lÆ°á»£ng', N'Research Methods & Quantitative Analysis â€” covers research design and quantitative techniques for analysing data in business studies. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SAL301', N'Professional Selling and Management_Ká»¹ nÄƒng bÃ¡n hÃ ng chuyÃªn nghiá»‡p', N'Professional Selling and Management â€” develops professional sales skills and the management of sales activities. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SAP312', N'Há»‡ thá»‘ng ERP: khÃ¡i niá»‡m vÃ  thá»±c hÃ nh vá»›i SAP_ERP System: Concepts and practice with SAP', N'ERP Systems: Concepts and Practice with SAP â€” introduces enterprise resource planning (ERP) concepts with hands-on practice using SAP. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SBA301', N'Integrate single page application with Spring Boot', N'Upon completion, students should:
+1) Understand:
+- ReactJS concepts for building front-end applications;
+- RESTful API concepts, and building RESTful APIs using Spring Boot''s built-in features and frameworks;
+- Security features (authentication and authorization) with RESTful APIs;
+- Handling HTTP requests and responses in Spring Boot;
+- Error handling and exception management in Spring Boot RESTful APIs.
+2) Be able to:
+- Build RESTful APIs using Spring Boot;
+- Implement authentication and authorization security features;
+- Handle HTTP requests and responses using Spring Boot;
+- Build front-end applications using ReactJS components;
+- Integrate Spring Boot with other technologies such as SQL Server, MongoDB and ReactJS.
+3) Work in a team and present group results.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SCM202', N'''Nháº­p mÃ´n Quáº£n lÃ½ Logistics vÃ  chuá»—i cung á»©ng_Introduction to Logistics and Supply Chain Management', N'Introduction to Logistics and Supply Chain Management â€” covers the fundamentals of logistics and managing the flow of goods and services across the supply chain. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SCM302', N'Procurement and Global Sourcing_Thu mua toÃ n cáº§u', N'Procurement and Global Sourcing â€” covers purchasing and sourcing goods and services from global suppliers. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SEM301', N'Ngá»¯ nghÄ©a há»c tiáº¿ng anh English Semantics', N'English Semantics â€” studies meaning in language, including word meaning, sentence meaning and semantic relationships. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SEP490', N'SE Capstone Project', N'The capstone project gives students important skills and initial experience in participating in software projects, applying learned knowledge to real, current projects. Students will:
+- Experience all project phases: requirement, design, coding, testing and release;
+- Find and use templates and compose documents for each project stage;
+- Apply the technology knowledge they have been taught;
+- Research and apply new technologies;
+- Practice teamwork and learn to interact with colleagues during implementation;
+- Ensure proper implementation of quality requirements and schedule;
+- Perform troubleshooting.
+Teams of 4-5 members build an output product equivalent to about 20-25 medium use cases (3-7 transactions each; action buttons, end-user interactions with screens/functions, or database transactions can each count as a transaction).');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SSA101', N'Ká»¹ nÄƒng há»c thuáº­t', N'Introduces essential academic skills for university success, focusing on effective study habits, critical and creative thinking, academic communication and the responsible use of AI.
+Students explore three key areas:
+- AI and academic integrity;
+- Thinking skills for the digital age;
+- Learning and communication at university.
+The course emphasizes self-directed learning and helps students manage their study, time and learning strategies effectively in both traditional and online settings.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SSB201', N'Advanced Business Communication/Ká»¹ nÄƒng giao tiáº¿p nÃ¢ng cao trong kinh doanh', N'Advanced Business Communication â€” develops advanced communication skills for professional and business contexts. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SSC302m', N'NÃ³i trÆ°á»›c cÃ´ng chÃºng_Public Speaking', N'Public Speaking â€” develops skills for preparing and delivering effective spoken presentations to an audience. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SSG104', N'Communication and In-Group Working Skills_Ká»¹ nÄƒng giao tiáº¿p vÃ  cá»™ng tÃ¡c', N'Covers both working in groups and communication skills.
+- Presents theories of communication and group work;
+- Provides activities for students to practice applying these theories in academic and working contexts.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SSG105', N'Ká»¹ nÄƒng giao tiáº¿p vÃ  cá»™ng tÃ¡c', N'Develops students'' teamwork and workplace communication skills for academic and professional contexts.
+- Students examine how teams function and practice building trust, leadership and conflict management while communicating effectively in collaborative settings;
+- Emphasizes academic integrity, netiquette and ethical communication as principles for responsible participation in academic and professional communities;
+- Through group projects and applied activities, students develop practical skills in writing, presentations, meetings and career communication.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SSL101c', N'Academic Skills for University Success_Ká»¹ nÄƒng há»c táº­p Ä‘áº¡i há»c', N'Upon finishing the course, students can:
+1) Knowledge - understand methods to develop Information & Digital Literacy, Problem Solving and Creativity, Critical Thinking, and Communication skills.
+2) Ability (ABET):
+- Access, search, filter, manage and organize information from varied sources using digital tools;
+- Critically evaluate source reliability and use referencing tools to avoid plagiarism;
+- Show awareness of ethical issues around academic integrity;
+- Identify real problems within ill-defined situations and apply analytical and creative problem-solving techniques;
+- Use thinking tools to improve critical thinking;
+- Identify types of argument and bias within arguments;
+- Further understanding through spoken, written, visual and conversational modes;
+- Formulate arguments and communicate research findings through researching, composing and editing.
+3) Others - improve study skills such as academic reading and information searching.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SWD392', N'Software Architecture and Design', N'A course in the concepts and methods for the architectural design of software systems large and complex enough to require several people working for many months.
+- Introduces fundamental design concepts and design notations;
+- Presents and compares several design methods with examples of their use;
+- Students undertake a term project in small groups, addressing the design of a relatively complex software system.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SWE202c', N'Introduction to Software Engineering', N'For those new to software engineering, as well as experienced developers who want a deeper understanding of the context and theory of software-development practices.
+By the end of the course, learners will be able to:
+- Build high-quality, secure software using SDLC methodologies such as agile, lean, and traditional/waterfall;
+- Analyze a development team''s SDLC methodology and recommend improvements;
+- Compare and contrast development methodologies with respect to environmental, organizational and product constraints.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SWP391', N'Software development project', N'Guides students through the full Software Development Life Cycle (SDLC) via a real-world team project, emphasizing the responsible use of AI across requirement analysis, design, implementation and testing.
+Students practice:
+- User story writing and system design;
+- Coding using MVC and OOP;
+- Workflow development, testing and reporting.
+AI tools are integrated into each phase to enhance productivity and quality.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SWR302', N'Software Requirements', N'A model-based introduction to Requirements Engineering (RE), providing conceptual background and terminology.
+Techniques for requirements development covered:
+- Analysis and requirements elicitation;
+- Requirements evaluation;
+- Requirements specification and documentation;
+- Requirements quality assurance.
+Students learn to find appropriate customer representatives, elicit requirements, and document user requirements, business rules, functional, data and nonfunctional requirements. Numerous visual models supplement natural-language text to illustrate requirements from various perspectives. The course also recommends effective requirements approaches for specific project classes: agile products, enhancement and replacement projects, packaged-solution projects, outsourced projects, business process automation, business analytics, and embedded/real-time systems.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'SWT301', N'Software Testing', N'Covers the principles and practice of software testing:
+- General principles of software testing, including its purposes and objectives;
+- Testing integrated into development processes, covering test levels, test types and maintenance testing;
+- Static testing basics, including feedback and review processes to enhance quality;
+- Techniques such as black-box (functional), white-box (structural) and experience-based testing to derive test cases;
+- Test activities: planning, estimation, monitoring, risk management, defect reporting and test automation;
+- Tools and methods that support effective testing, emphasizing benefits and potential risks;
+- Use of AI to explore testing concepts, support static testing, and create/optimize test plans.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'TMI101', N'Traditional musical instrument', N'Traditional Musical Instrument â€” introduces students to a traditional musical instrument and basic performance skills. (Brief summary based on the course title; see FLM for the official syllabus.)');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'TMI_ELE', N'Traditional musical instrument_Nháº¡c cá»¥ truyá»n thá»‘ng', N'Traditional Musical Instrument (elective) â€” introduces students to a traditional musical instrument and basic performance skills.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'TRS501', N'English 5 (University success)', N'Builds learners'' confidence and fluency in English through interactive, communicative lessons.
+By the end of the course, students can:
+- Identify main ideas and supporting details, and recognize and apply organizational structures;
+- Read academic passages fluently and use contextual strategies (context clues, root-word analysis, syntactic parsing) to interpret ambiguous text;
+- Analyze peer-reviewed research articles by identifying and summarizing the research question, methodology, key findings, and implications;
+- Distinguish facts from opinions and recognize implication and inference;
+- Understand cause-and-effect relationships and tell causation from correlation;
+- Determine the author''s purpose and tone, and interpret information in visuals, charts, and graphs accurately;
+- Organize ideas effectively at sentence, paragraph, and essay levels in academic writing;
+- Deliver clear, well-organized, impactful oral presentations with an appropriate academic register;
+- Master 280 Academic Word List terms, using them correctly in writing and presentations.
+Students are also expected to:
+- Work cooperatively, supportively, and responsibly in group work;
+- Leverage AI, online applications, language labs, and online platforms in learning tasks;
+- Adhere to plagiarism rules;
+- Demonstrate critical thinking.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'VNC104', N'Vietnamese Culture_CÆ¡ sá»Ÿ vÄƒn hÃ³a Viá»‡t Nam', N'Provides an understanding of the foundations and dimensions of Vietnamese culture - its origin and characteristics - with attention to the relationship between Vietnamese culture and present-day life, across social structures, belief systems, literature, arts and customs.
+Main topics:
+- Foundations of Vietnamese civilization: geography, language and history;
+- Core concepts in Vietnamese thought and religion: animism, Taoism, Buddhism, Confucianism, Catholicism and new sects;
+- Literature;
+- Society and life: education, the role of women, food, festivals and leisure;
+- Arts and architecture;
+- Vietnamese performing arts such as Ca trÃ¹, Tuá»“ng and HÃ¡t Bá»™i.
+Teaching methods: presentation, discussion, teamwork, critical thinking and field trips.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'VNR202', N'History of Communist Party of Vietnam_Lá»‹ch sá»­ Äáº£ng Cá»™ng sáº£n Viá»‡t Nam', N'Course introduction: History of the Communist Party of Vietnam (CPV) is a major and a division of historical science. President Ho Chi Minh affirmed that the Party''s history is made of golden pages of scientific, revolutionary and profound practical value in its platforms and guidelines - proper leadership and timely responses to the missions set by history, and the normative theoretical experiences and lessons of the Vietnamese revolution and the Party''s glorious traditions.
+Studying the history of the CPV requires not only mastering historical events and milestones but also understanding them within the process of leadership and struggle, and applying and developing them in the current period of comprehensive renovation, accelerated industrialization and modernization, and international integration.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'VOV114', N'Vovinam 1', N'Objective: Equip students with basic knowledge of Vovinam martial arts, including martial ethics, general hygiene in training, and the basic technique system.
+Level: Non-specialized Vovinam students.
+Teaching method: Combines traditional and modern methods (explanation, demonstration analysis, visual aids, discussion, problem posing) together with the core teaching means of physical education.
+Assessment:
+- Practice: basic Vovinam technique system;
+- Fitness: exercises developing general physical qualities;
+- Theory: written theory test.
+Content:
+Theory:
+- Lesson 1: brief history of formation and development, and martial ethics theory (statements 1-10);
+- Lesson 2: concept of general hygiene in training and competition;
+- Lesson 3: hygiene of equipment and tools in sports training.
+Practice:
+- Stances: horse stance, bow stance, cat stance, forward stance;
+- Hand techniques: 4 knife-hand chops, 6 punches, 4 knife-hand blocks, 4 elbow strikes;
+- Leg techniques: straight kick, side kick, roundhouse kick, thrust kick;
+- General fitness: developing speed, strength, endurance, flexibility and agility.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'VOV124', N'Vovinam 2', N'Objective: Equip students with basic knowledge of martial ethics, hygiene in sports training, and the 10 strategies (chiáº¿n lÆ°á»£c) of Vovinam.
+Level: Non-specialized Vovinam students.
+Teaching method: Combines traditional and modern methods (explanation, demonstration analysis, visual aids, discussion, problem posing) together with the core teaching means of physical education.
+Assessment:
+- Practice: Vovinam strategy techniques;
+- Fitness: exercises developing general physical qualities;
+- Theory: martial ethics and sports-training hygiene knowledge.
+Content:
+Theory:
+- Lesson 1: martial ethics theory (statements 11-30);
+- Lesson 2: hygiene during a training session;
+- Lesson 3: basic concepts of nutritional hygiene in sports training.
+Practice:
+- Strategies 1 to 10;
+- General fitness: developing speed, strength, endurance, flexibility and agility.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'VOV134', N'Vovinam 3', N'Objective: Equip students with martial ethics and nutritional-hygiene knowledge in sports training, plus one of: introductory quyen (forms), the first martial-arts music (vÃµ nháº¡c) routine, or building a VÃµ Nháº¡c sports-entertainment product.
+Level: Non-specialized Vovinam students.
+Teaching method: Combines traditional and modern methods (explanation, demonstration analysis, visual aids, discussion, problem posing) together with the core teaching means of physical education.
+Assessment:
+- Practice: introductory quyen / martial-arts music 1, or building a VÃµ Nháº¡c product;
+- Fitness: exercises developing general physical qualities;
+- Theory: sports-training hygiene knowledge (nutrition, eating and rest).
+Content:
+Theory:
+- Lesson 1: martial ethics theory (statements 31-50);
+- Lesson 2: eating issues in sports training;
+- Lesson 3: rest issues in sports training.
+Practice (choose 1 of 3):
+- Introductory quyen form;
+- Martial-arts music routine 1;
+- Creating a martial-arts music performance;
+- General fitness: developing speed, strength, endurance, flexibility and agility.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'WDU203c', N'The UI/UX Design', N'Integrates UX Research and UX Design to create great products by understanding user needs, rapidly generating prototypes, and evaluating design concepts.
+- Students gain hands-on experience taking a product from initial concept through user research, ideation and refinement, formal analysis, prototyping and user testing;
+- They apply perspectives and methods to ensure a great user experience at every step;
+- The course concludes with a capstone project in which learners design a complete product, from initial concept to an interactive prototype.');
+INSERT INTO dbo.SUBJECT (subject_code, subject_name, description)
+VALUES (N'WED201c', N'Web Design', N'Upon finishing the course, students can:
+1) Knowledge (ABET e) - understand:
+- HTML, CSS3, JavaScript, interactivity with JavaScript, and advanced styling with responsive design;
+- Web page and web site structure;
+- How to design and implement a responsive site across three platforms;
+- How a web page is presented in browsers.
+2) Ability (ABET k):
+- Add interactivity to web pages with JavaScript;
+- Apply responsive design for various devices;
+- Describe the basics of CSS3;
+- Use the Document Object Model (DOM) to modify pages.
+3) Others (ABET i) - improve study skills such as academic reading and information searching.');
+GO
+
+/* ---------- Seed: CURRICULUM (major x subject x semester) ---------- */
+-- Software Engineering (SE)
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order)
+SELECT m.major_id, s.subject_id, -1, 1
+FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N'SE' AND s.subject_code=N'TRS501';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 2 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'ENT503\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 3 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'VOV114\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 4 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'VOV124\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 5 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'VOV134\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 6 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'TMI101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 7 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'OTP101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 8 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'CSI106\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 9 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SSL101c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 10 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'PRF192\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 11 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'MAE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 12 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'CEA201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 13 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'PRO192\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 14 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'MAD101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 15 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'OSG202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 16 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'WED201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 17 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'NWC204\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 18 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'JPD113\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 19 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'CSD201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 20 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'DBI202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 21 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'MAS291\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 22 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'LAB211\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 23 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'JPD123\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 24 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'IOT102\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 25 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'PRJ301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 26 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SSG104\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 27 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SWE202c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 28 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'HSF302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 29 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SWP391\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 30 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'WDU203c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 31 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SWR302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 32 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SWT301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 33 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'OJT202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 34 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'ENW493c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 35 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SBA301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 36 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SWD392\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 37 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'EXE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 38 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'PMG201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 39 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'EXE201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 40 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'ITE302c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 41 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'MLN122\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 42 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'MLN111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 43 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'MSS301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 44 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'PRM393\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 45 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'MLN131\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 46 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'VNR202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 47 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'HCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 48 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'SE\' AND s.subject_code=N\'SEP490\';
+
+-- Digital Marketing (Marketing)
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 1 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'OTP101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 2 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'PEN\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 3 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'PHE_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 4 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'TMI_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 5 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'ECO111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 6 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'ENM302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 7 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MGT103\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 8 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 9 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'PHE_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 10 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'SSL101c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 11 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'ACC101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 12 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'ECO121\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 13 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'ENM402\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 14 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'OBE102c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 15 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'PHE_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 16 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'SSG104\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 17 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'DMS301m\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 18 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'FIN202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 19 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'HRM202c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 20 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 21 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT304\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 22 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'BDT202c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 23 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'CHN113\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 24 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'DMA301m\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 25 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MAS202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 26 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 27 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'CHN123\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 28 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'DTG111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 29 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT208c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 30 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'SAL301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 31 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'SSB201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 32 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'ENW492c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 33 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'OJB202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 34 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'EXE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 35 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'LAW102\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 36 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 37 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 38 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 39 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'EXE201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 40 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT_COM*4\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 41 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 42 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MLN111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 43 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MLN122\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 44 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'PMG201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 45 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'HCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 46 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MKT_GRA_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 47 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'MLN131\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 48 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Marketing\' AND s.subject_code=N\'VNR202\';
+
+-- Logistics & Supply Chain Management (Logistic)
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 1 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'OTP101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 2 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'PEN\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 3 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'PHE_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 4 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'TMI_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 5 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'ACC101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 6 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'ECO102\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 7 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'ENM302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 8 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'MGT103\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 9 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'PHE_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 10 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'SSA101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 11 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'ENM402\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 12 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'FIN202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 13 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'MKT101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 14 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'OBE102c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 15 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'PHE_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 16 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'SCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 17 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GLI202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 18 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GLT301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 19 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'HRM202c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 20 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'MAS202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 21 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'SCM302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 22 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'BDT202c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 23 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'CHN113\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 24 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GLA301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 25 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GSF301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 26 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'SSG105\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 27 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'CHN123\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 28 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GLC301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 29 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GLH301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 30 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'SAP312\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 31 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'SSB201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 32 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'ENW492c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 33 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'OJB202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 34 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'EXE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 35 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GL_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 36 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GL_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 37 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GL_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 38 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'LAW102\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 39 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'EXE201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 40 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GL_COM*4\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 41 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'MLN111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 42 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'MLN122\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 43 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'PMG201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 44 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'RMB302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 45 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'GL_GRA_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 46 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'HCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 47 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'MLN131\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 48 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Logistic\' AND s.subject_code=N\'VNR202\';
+
+-- Finance (Finance)
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 1 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'OTP101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 2 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'PEN\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 3 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'PHE_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 4 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'TMI_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 5 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ACC101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 6 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ECO111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 7 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ENM302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 8 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'MGT103\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 9 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'PHE_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 10 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'SSL101c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 11 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ECO121\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 12 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ENM402\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 13 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 14 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'OBE102c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 15 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'PHE_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 16 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'SSG104\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 17 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ACC302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 18 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 19 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN303\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 20 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'HRM202c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 21 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'MKT101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 22 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ACC305\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 23 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'CHN113\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 24 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 25 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ITA203c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 26 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'MAS202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 27 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'CHN123\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 28 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIM302c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 29 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN402\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 30 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'RMB302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 31 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'SSB201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 32 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'ENW492c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 33 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'OJB202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 34 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'EXE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 35 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 36 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 37 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 38 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'LAW102\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 39 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'BKG303\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 40 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'EXE201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 41 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN_COM*.4\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 42 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'MLN111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 43 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'MLN122\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 44 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'PMG201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 45 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'FIN_GRA_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 46 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'HCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 47 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'MLN131\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 48 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'Finance\' AND s.subject_code=N\'VNR202\';
+
+-- Information Assurance (IA)
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order)
+SELECT m.major_id, s.subject_id, -1, 1
+FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N'IA' AND s.subject_code=N'TRS501';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 2 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'ENT503\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 3 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'VOV114\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 4 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'VOV124\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 5 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'VOV134\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 6 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'TMI101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 7 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'OTP101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 8 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'CSI106\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 9 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'PRF192\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 10 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'MAE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 11 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'CEA201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 12 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'SSL101c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 13 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IOT102\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 14 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'NWC204\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 15 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'PRO192\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 16 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'MAD101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 17 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'OSG202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 18 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'CSD201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 19 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'DBI202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 20 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'LAB211\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 21 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'JPD113\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 22 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IAO202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 23 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'SSG104\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 24 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'JPD123\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 25 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'ITE302c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 26 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'OSP201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 27 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'MAS291\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 28 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IAA202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 29 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'FRS301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 30 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'PRP201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 31 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'CRY303c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 32 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IAM302t\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 33 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'ENW493c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 34 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'OJT202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 35 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'HOD401\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 36 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IA-000001c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 37 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IA-000002\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 38 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IAP301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 39 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'EXE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 40 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'EXE201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 41 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'PMG201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 42 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'MLN111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 43 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IA-000003c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 44 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IA-000004\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 45 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'MLN122\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 46 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'HCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 47 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'IAP491\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 48 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'MLN131\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 49 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'IA\' AND s.subject_code=N\'VNR202\';
+
+-- English Language (English)
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 1 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'OTP101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 2 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'PEN\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 3 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'PHE_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 4 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'TMI_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 5 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'CHN113\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 6 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ECR301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 7 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ENG303\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 8 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ENP203\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 9 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'PHE_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 10 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'SSA101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 11 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'CHN123\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 12 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EAL202c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 13 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EAW301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 14 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'LTG301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 15 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'PHE_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 16 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'VNC104\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 17 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ECB101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 18 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EMP301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 19 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ERW413\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 20 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'LIT301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 21 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'SSC302m\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 22 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ECC302c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 23 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ELI302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 24 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ELT302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 25 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ERW423\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 26 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EST301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 27 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ELI402\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 28 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ELT402\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 29 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ENB302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 30 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'SEM301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 31 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'SSG105\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 32 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EPE301c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 33 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'OJE202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 34 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'BEN_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 35 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'BEN_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 36 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EPG301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 37 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ESL301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 38 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EXE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 39 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'BEN_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 40 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'BEN_COM*4\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 41 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'ELR301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 42 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'EXE201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 43 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'MLN111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 44 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'MLN122\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 45 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'BEN_GRA_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 46 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'HCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 47 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'MLN131\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 48 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'English\' AND s.subject_code=N\'VNR202\';
+
+-- Artificial Intelligence (AI)
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 1 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'OTP101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 2 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'PEN\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 3 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'PHE_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 0, 4 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'TMI_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 5 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'CEA201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 6 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'CSI106\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 7 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'MAE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 8 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'PFP191\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 9 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'PHE_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 1, 10 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'SSA101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 11 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'APO201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 12 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IOT102\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 13 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'MAD101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 14 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'NWC204\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 15 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'OSG203\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 2, 16 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'PHE_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 17 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'CSD203\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 18 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'DBI202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 19 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IA_ELE2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 20 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'JPD113\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 3, 21 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'NWC303\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 22 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'AIC211\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 23 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'ITE302c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 24 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'JPD123\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 25 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'MAS291\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 4, 26 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'SSG105\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 27 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'CRY303c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 28 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'FRS301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 29 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IAA202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 30 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IAM302\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 5, 31 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'PWD301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 32 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'ENW493c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 6, 33 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'OJT202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 34 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'EXE101\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 35 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'HOD402\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 36 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IA_COM*1\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 37 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IA_COM*2\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 7, 38 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IAP301\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 39 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'EXE201\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 40 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IA_COM*3\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 41 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IA_COM*4\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 42 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'MLN111\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 43 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'MLN122\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 8, 44 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'PMG201c\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 45 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'HCM202\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 46 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'IA_GRA_ELE\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 47 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'MLN131\';
+INSERT INTO dbo.CURRICULUM (major_id, subject_id, semester_no, display_order) SELECT m.major_id, s.subject_id, 9, 48 FROM dbo.MAJOR m, dbo.SUBJECT s WHERE m.major_code=N\'AI\' AND s.subject_code=N\'VNR202\';
+
+GO
+
+/* ---------- Quick verification ---------- */
+SELECT (SELECT COUNT(*) FROM dbo.MAJOR)      AS majors,
+       (SELECT COUNT(*) FROM dbo.SUBJECT)    AS subjects,
+       (SELECT COUNT(*) FROM dbo.CURRICULUM) AS curriculum_rows;
+GO
