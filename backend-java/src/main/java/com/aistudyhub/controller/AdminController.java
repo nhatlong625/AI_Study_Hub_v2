@@ -20,6 +20,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdminController {
     private final NamedParameterJdbcTemplate jdbc;
+    private final com.aistudyhub.security.CurrentUser currentUser;
 
     @GetMapping("/dashboard")
     public Map<String, Object> dashboard() {
@@ -704,7 +705,7 @@ public class AdminController {
         List<Map<String, Object>> documents = jdbc.queryForList("""
             SELECT d.document_id AS id, d.user_id AS userId, d.title, d.document_name AS documentName
             FROM dbo.DOCUMENT d
-            WHERE d.document_id = :id
+            WHERE d.document_id = :id AND d.deleted_at IS NULL
             """, Map.of("id", id));
         if (documents.isEmpty()) return ResponseEntity.notFound().build();
         Map<String, Object> document = documents.get(0);
@@ -724,9 +725,15 @@ public class AdminController {
             VALUES (:userId, :announcementId, 0, NULL)
             """, params("userId", userId).addValue("announcementId", announcementId));
 
-        MapSqlParameterSource p = params("id", id);
-        deleteDocumentDependencies("SELECT :id", p);
-        int rows = jdbc.update("DELETE FROM dbo.DOCUMENT WHERE document_id = :id", p);
+        MapSqlParameterSource p = params("id", id)
+                .addValue("adminId", currentUser.id());
+        int rows = jdbc.update("""
+            UPDATE dbo.DOCUMENT
+            SET deleted_at = GETDATE(),
+                deleted_by_user_id = :adminId,
+                deleted_by_role = 'ADMIN'
+            WHERE document_id = :id AND deleted_at IS NULL
+            """, p);
         if (rows == 0) throw notFound("Document not found.");
         return ResponseEntity.noContent().build();
     }
@@ -918,6 +925,12 @@ public class AdminController {
     }
 
     private String documentSql(String suffix) {
+        String baseWhere = "WHERE d.deleted_at IS NULL ";
+        if (suffix != null && suffix.trim().toUpperCase().startsWith("WHERE ")) {
+            suffix = "AND " + suffix.trim().substring(6);
+        } else if (suffix == null) {
+            suffix = "";
+        }
         return """
             SELECT d.document_id AS id, d.title, d.document_type AS type,
                    CONCAT(CAST(CAST(d.document_size AS DECIMAL(18,2)) / 1048576 AS DECIMAL(10,1)), ' MB') AS size,
@@ -946,7 +959,7 @@ public class AdminController {
                        ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY created_at DESC) AS rn
                 FROM dbo.PUBLIC_REVIEW_LOG
             ) prl ON prl.document_id = d.document_id AND prl.rn = 1
-            """ + suffix;
+            """ + baseWhere + suffix;
     }
 
     private void deleteDocumentDependencies(String documentIdSql, MapSqlParameterSource params) {

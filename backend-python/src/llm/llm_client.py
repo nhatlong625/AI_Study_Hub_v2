@@ -436,15 +436,19 @@ class LlmService:
             subject_info += f"\nDescription: {subject_description}"
 
         prompt = (
-            "You are a document moderation assistant for a university study hub.\n"
-            "Evaluate how relevant the uploaded document is to its assigned subject.\n\n"
+            "You are an AI document moderation evaluator for a university study hub.\n"
+            "Evaluate how relevant the uploaded document is to its assigned subject using the exact scoring rubric below.\n\n"
             f"{subject_info}\n\n"
             f"Uploaded Document:\n{doc_info}\n\n"
+            "EXPLICIT SCORING RUBRIC (Total 0 to 100 points):\n"
+            "1. Subject Topic Match (0-40 pts): How well does the document topic match the subject syllabus?\n"
+            "2. Terminology & Concept Density (0-30 pts): Does the document contain core keywords, formulas, or concepts of this subject?\n"
+            "3. Educational Resource Quality (0-20 pts): Is it a valid study material (slides, exam prep, lab notes, lecture notes)? Deduct heavily if it's personal/trash/receipt/unrelated file.\n"
+            "4. Content Completeness & Structure (0-10 pts): Is the text legible, clear, and well-structured?\n\n"
             "Instructions:\n"
-            "1. Compare the document title and summary content against the subject name and description.\n"
-            "2. Score relevance from 0 to 100 (100 = perfectly relevant).\n"
-            "3. Provide a brief reasoning in Vietnamese explaining your assessment.\n"
-            "4. Based on score: >=80 recommend AUTO_APPROVED, 50-79 recommend PENDING_HUMAN, <50 recommend REJECTED.\n\n"
+            "- Calculate total relevance_score (sum of 4 criteria above, range 0 to 100).\n"
+            "- Provide a concise reasoning in English explaining the score and 4-criteria rubric breakdown.\n"
+            "- Set recommendation: >=80 => AUTO_APPROVED, 50-79 => PENDING_HUMAN, <50 => REJECTED.\n\n"
             "Reply in this EXACT JSON format only, no other text:\n"
             '{"relevance_score": <number>, "ai_reasoning": "<text>", "recommendation": "<AUTO_APPROVED|PENDING_HUMAN|REJECTED>"}'
         )
