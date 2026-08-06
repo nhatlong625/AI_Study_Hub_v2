@@ -414,6 +414,19 @@ class LlmService:
             return "DeepSeek"
         return "LLM"
 
+    def generate(self, prompt: str) -> tuple[str, bool]:
+        """Generate text from prompt using LLM with failover.
+        Returns tuple of (response_text, is_mock_ai).
+        """
+        self._refresh_runtime_config()
+        if self.provider == "mock":
+            return "Mock AI response generated for document summary.", True
+        try:
+            result = self._generate_with_failover(prompt)
+            return result.text.strip(), False
+        except Exception as e:
+            return f"Summary generated from fallback: {e}", True
+
     def moderate_document(
         self,
         title: str,
@@ -447,7 +460,14 @@ class LlmService:
             "4. Content Completeness & Structure (0-10 pts): Is the text legible, clear, and well-structured?\n\n"
             "Instructions:\n"
             "- Calculate total relevance_score (sum of 4 criteria above, range 0 to 100).\n"
-            "- Provide a concise reasoning in English explaining the score and 4-criteria rubric breakdown.\n"
+            "- Format `ai_reasoning` EXACTLY like this with each score on its own line, followed by detailed explanation paragraph:\n"
+            "  • Subject Topic Match: <X>/40\n"
+            "  • Terminology & Concept Density: <X>/30\n"
+            "  • Educational Resource Quality: <X>/20\n"
+            "  • Content Completeness & Structure: <X>/10\n"
+            "  Total Relevance Score: <X>/100\n\n"
+            "  Explanation:\n"
+            "  <Detailed explanation paragraph in English>\n"
             "- Set recommendation: >=80 => AUTO_APPROVED, 50-79 => PENDING_HUMAN, <50 => REJECTED.\n\n"
             "Reply in this EXACT JSON format only, no other text:\n"
             '{"relevance_score": <number>, "ai_reasoning": "<text>", "recommendation": "<AUTO_APPROVED|PENDING_HUMAN|REJECTED>"}'

@@ -74,6 +74,127 @@ function AiModerationBadge({ aiModeration }) {
   );
 }
 
+function FormattedAiReasoning({ reasoning }) {
+  if (!reasoning) return null;
+
+  const text = String(reasoning).replace(/\r\n/g, '\n');
+
+  const criteriaDefs = [
+    {
+      key: 'Subject Topic Match',
+      regex: /(?:1\.\s*)?Subject Topic Match\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^234•\n\r]+(?:\n(?![234]\.|\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+    },
+    {
+      key: 'Terminology & Concept Density',
+      regex: /(?:2\.\s*)?(?:Terminology & Concept Density|Terminology Density)\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^34•\n\r]+(?:\n(?![34]\.|\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+    },
+    {
+      key: 'Educational Resource Quality',
+      regex: /(?:3\.\s*)?Educational Resource Quality\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^4•\n\r]+(?:\n(?!4\.|\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+    },
+    {
+      key: 'Content Completeness & Structure',
+      regex: /(?:4\.\s*)?Content Completeness & Structure\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^•\n\r]+(?:\n(?!\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+    },
+  ];
+
+  const extracted = [];
+  criteriaDefs.forEach(item => {
+    const match = text.match(item.regex);
+    if (match) {
+      const score = match[1] || match[2];
+      let note = (match[3] || '').trim();
+      note = note.replace(/\s*(?:2\.|3\.|4\.|Rubric breakdown:?|Total Relevance Score:?.*)$/i, '').trim();
+      if (score) {
+        extracted.push({
+          title: item.key,
+          score,
+          note,
+        });
+      }
+    }
+  });
+
+  let mainExplanation = text;
+  const firstCriterionIndex = text.search(/(?:1\.\s*)?Subject Topic Match|Rubric breakdown:|EXPLICIT SCORING RUBRIC/i);
+  if (firstCriterionIndex > 0) {
+    mainExplanation = text.substring(0, firstCriterionIndex).trim();
+  } else if (firstCriterionIndex === 0) {
+    const expIdx = text.search(/Explanation:/i);
+    if (expIdx > 0) {
+      mainExplanation = text.substring(expIdx + 'Explanation:'.length).trim();
+    } else {
+      mainExplanation = '';
+    }
+  }
+
+  if (extracted.length === 0) {
+    return (
+      <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.6, whiteSpace: 'pre-wrap', marginTop: 8 }}>
+        {text.split('\n').map((line, idx) => {
+          const scoreMatch = line.match(/(\d+\/(?:40|30|20|10|100))/);
+          if (scoreMatch) {
+            const parts = line.split(scoreMatch[0]);
+            return (
+              <div key={idx} style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span>{parts[0]}</span>
+                <span style={{ padding: '2px 8px', borderRadius: 6, background: scoreMatch[0].startsWith('0/') ? '#fee2e2' : '#e0e7ff', color: scoreMatch[0].startsWith('0/') ? '#dc2626' : '#3730a3', fontWeight: 800, fontSize: 11 }}>
+                  {scoreMatch[0]}
+                </span>
+                <span>{parts[1]}</span>
+              </div>
+            );
+          }
+          return <div key={idx} style={{ marginBottom: 4 }}>{line}</div>;
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+      {mainExplanation && (
+        <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
+          {mainExplanation}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: '#ffffff', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Rubric Breakdown (Detailed Criteria)
+        </span>
+
+        {extracted.map((c, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, padding: '6px 0', borderBottom: idx < extracted.length - 1 ? '1px dashed #f1f5f9' : 'none' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>
+                • {c.title}
+              </div>
+              {c.note && (
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
+                  {c.note}
+                </div>
+              )}
+            </div>
+            <span style={{
+              display: 'inline-block',
+              padding: '2px 10px',
+              borderRadius: 12,
+              fontSize: 11,
+              fontWeight: 800,
+              background: c.score.startsWith('0/') ? '#fee2e2' : '#e0e7ff',
+              color: c.score.startsWith('0/') ? '#dc2626' : '#3730a3',
+              flexShrink: 0
+            }}>
+              {c.score}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChevronIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -545,9 +666,7 @@ function DocumentManagementPage() {
                       <AiModerationBadge aiModeration={preview.aiModeration} />
                     </div>
                     {preview.aiModeration.reasoning && (
-                      <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
-                        {preview.aiModeration.reasoning}
-                      </p>
+                      <FormattedAiReasoning reasoning={preview.aiModeration.reasoning} />
                     )}
                   </div>
                 )}
