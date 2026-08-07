@@ -191,7 +191,7 @@ function StudentPracticeTestsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-7">
+    <div className="bg-gray-50 p-7">
       <div className="w-full">
         <header className="mb-6 flex min-h-[64px] flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

@@ -887,7 +887,7 @@ export default function StudentSettingsPage() {
   }
 
   return (
-    <div className="p-7 bg-gray-50 min-h-screen">
+    <div className="p-7 bg-gray-50">
       <PageHeader title="Settings" description="Manage your account, preferences, and app settings." />
 
       <div className="flex gap-6">

@@ -32,6 +32,8 @@ public class LibraryService {
                 LibrarySemesterResponse item = new LibrarySemesterResponse();
                 item.setSemesterId(id);
                 item.setSemesterName(row.getSemesterName());
+                item.setMajorId(row.getMajorId());
+                item.setMajorName(row.getMajorName());
                 return item;
             });
 

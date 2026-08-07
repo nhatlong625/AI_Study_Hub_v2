@@ -247,7 +247,6 @@ export default function StudentSharedWithMePage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
   // track shareId đang toggle (tránh double-click) + notice modal cooldown/409
   const [togglingIds, setTogglingIds] = useState(new Set());
   const [notice, setNotice] = useState(null);
@@ -364,17 +363,8 @@ export default function StudentSharedWithMePage() {
     }
   }
 
-  const filtered = items.filter((item) => {
-    const q = search.toLowerCase();
-    return (
-      (item.documentTitle || "").toLowerCase().includes(q) ||
-      (item.ownerName || "").toLowerCase().includes(q) ||
-      (item.ownerEmail || "").toLowerCase().includes(q)
-    );
-  });
-
   return (
-    <div className="p-7 bg-gray-50 min-h-screen">
+    <div className="p-7 bg-gray-50">
       {notice && (
         <VisibilityNoticeModal
           title={notice.title}
@@ -390,7 +380,7 @@ export default function StudentSharedWithMePage() {
         />
       )}
       {/* Header */}
-      <div className="flex min-h-[64px] items-start justify-between gap-4 mb-6">
+      <div className="min-h-[64px] mb-6">
         <div>
           <h1 className="m-0 text-[30px] leading-9 font-black text-gray-900 tracking-tight">
             Shared With Me
@@ -399,31 +389,6 @@ export default function StudentSharedWithMePage() {
             Documents other students have shared with you.
           </p>
         </div>
-
-        {/* Search */}
-        {items.length > 0 && (
-          <div className="relative flex-shrink-0">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
-              className="pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-white outline-none focus:border-indigo-400 transition-colors w-52"
-            />
-          </div>
-        )}
       </div>
 
       {/* Content */}
@@ -460,10 +425,6 @@ export default function StudentSharedWithMePage() {
               When someone shares a document with you, it will appear here.
             </p>
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center py-16 text-sm text-gray-400">
-            No results for "{search}"
-          </div>
         ) : (
           <>
             {/* Table header */}
@@ -489,14 +450,14 @@ export default function StudentSharedWithMePage() {
 
             {/* Rows */}
             <div>
-              {filtered.map((item, i) => {
+              {items.map((item, i) => {
                 const ext = getExt(item.documentName);
                 return (
                   <div
                     key={item.shareId}
                     className={
                       "grid grid-cols-[1fr_250px_100px_140px_70px] px-6 py-4 items-center hover:bg-gray-50 transition-colors " +
-                      (i < filtered.length - 1
+                      (i < items.length - 1
                         ? "border-b border-gray-100"
                         : "")
                     }

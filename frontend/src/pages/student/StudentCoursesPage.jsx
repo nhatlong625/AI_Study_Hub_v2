@@ -86,7 +86,7 @@ export default function StudentCoursesPage() {
   };
 
   return (
-    <div className="p-7 bg-gray-50 min-h-screen">
+    <div className="p-7 bg-gray-50">
       {showUpload && (
         <CourseUploadModal
           courseId={courseId}

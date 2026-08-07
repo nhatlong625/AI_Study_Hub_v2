@@ -297,7 +297,7 @@ public class AdminController {
             WHERE question_id IN (SELECT question_id FROM dbo.AI_QUESTION WHERE document_id IN (SELECT document_id FROM dbo.DOCUMENT WHERE user_id = :id))
             """, p);
         deleteByUser("DELETE FROM dbo.AI_QUESTION WHERE document_id IN (SELECT document_id FROM dbo.DOCUMENT WHERE user_id = :id)", p);
-        deleteByUser("DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (SELECT document_id FROM dbo.DOCUMENT WHERE user_id = :id)", p);
+        deleteByUser("IF OBJECT_ID('dbo.AI_SUGGESTION', 'U') IS NOT NULL DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (SELECT document_id FROM dbo.DOCUMENT WHERE user_id = :id)", p);
         deleteByUser("DELETE FROM dbo.COMMENT WHERE user_id = :id OR document_id IN (SELECT document_id FROM dbo.DOCUMENT WHERE user_id = :id)", p);
         deleteByUser("DELETE FROM dbo.REPORT WHERE user_id = :id OR document_id IN (SELECT document_id FROM dbo.DOCUMENT WHERE user_id = :id)", p);
         deleteByUser("DELETE FROM dbo.DOCUMENT_SHARE WHERE user_id = :id OR document_id IN (SELECT document_id FROM dbo.DOCUMENT WHERE user_id = :id)", p);
@@ -385,12 +385,22 @@ public class AdminController {
                 DELETE FROM dbo.DOCUMENT_SHARE  WHERE document_id IN (SELECT document_id FROM #TempDoc);
                 DELETE FROM dbo.CHAT_MESSAGE    WHERE session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id IN (SELECT document_id FROM #TempDoc));
                 DELETE FROM dbo.CHAT_SESSION    WHERE document_id IN (SELECT document_id FROM #TempDoc);
-                DELETE FROM dbo.AI_SUGGESTION   WHERE document_id IN (SELECT document_id FROM #TempDoc) OR subject_id IN (SELECT subject_id FROM #TempSub) OR semester_id IN (SELECT semester_id FROM #TempSem);
+                -- AI_SUGGESTION is not created by any migration yet; guard so the cascade
+                -- still runs on databases where the table is absent (SQL error 208).
+                IF OBJECT_ID('dbo.AI_SUGGESTION', 'U') IS NOT NULL
+                    DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (SELECT document_id FROM #TempDoc) OR subject_id IN (SELECT subject_id FROM #TempSub) OR semester_id IN (SELECT semester_id FROM #TempSem);
 
                 DELETE FROM dbo.DOCUMENT        WHERE document_id IN (SELECT document_id FROM #TempDoc);
                 DELETE FROM dbo.USER_SUBJECT    WHERE subject_id IN (SELECT subject_id FROM #TempSub);
+                -- Shared-subject links: drop every row pointing at a semester or a subject
+                -- that is about to go, including links owned by other majors.
+                DELETE FROM dbo.SEMESTER_SUBJECT WHERE semester_id IN (SELECT semester_id FROM #TempSem)
+                                                    OR subject_id  IN (SELECT subject_id  FROM #TempSub);
+                DELETE FROM dbo.SUBJECT_REPORT  WHERE major_id = :id OR semester_id IN (SELECT semester_id FROM #TempSem);
                 DELETE FROM dbo.SUBJECT         WHERE subject_id IN (SELECT subject_id FROM #TempSub);
                 DELETE FROM dbo.SEMESTER        WHERE semester_id IN (SELECT semester_id FROM #TempSem);
+                -- Students who picked this major keep their account; onboarding asks again.
+                UPDATE dbo.[USER] SET major_id = NULL WHERE major_id = :id;
                 DELETE FROM dbo.MAJOR           WHERE major_id = :id;
 
                 DROP TABLE #TempSem; DROP TABLE #TempSub; DROP TABLE #TempDoc; DROP TABLE #TempQ; DROP TABLE #TempQuiz;
@@ -401,8 +411,14 @@ public class AdminController {
                 THROW;
             END CATCH
             """;
-        int rows = jdbc.update(sql, Map.of("id", id));
-        if (rows == 0) throw notFound("Major not found.");
+        // jdbc.update returns the row count of the FIRST statement in the batch
+        // (SELECT ... INTO #TempSem), which is 0 for a major that has no semesters.
+        // Deriving 404 from it wrongly rolled back the delete of every empty major,
+        // so check existence up front instead.
+        Integer found = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM dbo.MAJOR WHERE major_id = :id", Map.of("id", id), Integer.class);
+        if (found == null || found == 0) throw notFound("Major not found.");
+        jdbc.update(sql, Map.of("id", id));
         return ResponseEntity.noContent().build();
     }
 
@@ -515,7 +531,8 @@ public class AdminController {
                 DELETE FROM dbo.CHAT_MESSAGE WHERE session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id IN (SELECT document_id FROM #TempDocs));
                 DELETE FROM dbo.CHAT_SESSION WHERE document_id IN (SELECT document_id FROM #TempDocs);
 
-                DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (SELECT document_id FROM #TempDocs) OR subject_id IN (SELECT subject_id FROM #TempSubjects) OR semester_id = :id;
+                IF OBJECT_ID('dbo.AI_SUGGESTION', 'U') IS NOT NULL
+                    DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (SELECT document_id FROM #TempDocs) OR subject_id IN (SELECT subject_id FROM #TempSubjects) OR semester_id = :id;
 
                 DELETE FROM dbo.DOCUMENT_SHARE WHERE document_id IN (SELECT document_id FROM #TempDocs);
                 DELETE FROM dbo.DOCUMENT WHERE subject_id IN (SELECT subject_id FROM #TempSubjects);
@@ -545,7 +562,7 @@ public class AdminController {
     public List<Map<String, Object>> courses(@PathVariable Integer id) {
         return jdbc.queryForList("""
             SELECT sub.subject_id AS id, sub.subject_name AS name, COALESCE(NULLIF(sub.subject_code, ''), CONCAT('SUB-', sub.subject_id)) AS code,
-                   COALESCE(sub.description, '') AS instructor, COUNT(d.document_id) AS docs,
+                   COALESCE(sub.description, '') AS description, COUNT(d.document_id) AS docs,
                    COALESCE(CONVERT(NVARCHAR(19), sub.updated_at, 120), CONVERT(NVARCHAR(19), sub.created_at, 120)) AS updated,
                    'Active' AS status, 'book' AS icon, '#d1fae5' AS color, '#059669' AS iconColor,
                    CASE WHEN sub.semester_id = :id THEN 'home' ELSE 'linked' END AS linkType
@@ -567,7 +584,7 @@ public class AdminController {
             INSERT INTO dbo.SUBJECT (semester_id, subject_name, subject_code, description, created_at, updated_at)
             OUTPUT INSERTED.subject_id
             VALUES (:semesterId, :name, :code, :description, GETDATE(), NULL)
-            """, params("semesterId", id).addValue("name", required(body, "name")).addValue("code", str(body, "code", "")).addValue("description", str(body, "instructor", "")), Integer.class);
+            """, params("semesterId", id).addValue("name", required(body, "name")).addValue("code", str(body, "code", "")).addValue("description", str(body, "description", "")), Integer.class);
         return ResponseEntity.status(HttpStatus.CREATED).body(courseById(courseId));
     }
 
@@ -576,7 +593,7 @@ public class AdminController {
     public List<Map<String, Object>> searchSubjects(@RequestParam(defaultValue = "") String q) {
         String sql = """
             SELECT sub.subject_id AS id, sub.subject_name AS name, COALESCE(NULLIF(sub.subject_code, ''), CONCAT('SUB-', sub.subject_id)) AS code,
-                   COALESCE(sub.description, '') AS instructor, s.semester_name AS semesterName
+                   COALESCE(sub.description, '') AS description, s.semester_name AS semesterName
             FROM dbo.SUBJECT sub
             LEFT JOIN dbo.SEMESTER s ON s.semester_id = sub.semester_id
             """;
@@ -617,7 +634,7 @@ public class AdminController {
             """, params("id", id)
                 .addValue("name", required(body, "name"))
                 .addValue("code", str(body, "code", ""))
-                .addValue("description", str(body, "instructor", "")));
+                .addValue("description", str(body, "description", "")));
         if (rows == 0) throw notFound("Course not found.");
         return courseById(id);
     }
@@ -647,7 +664,7 @@ public class AdminController {
 
         jdbc.update("DELETE FROM dbo.SEMESTER_SUBJECT WHERE subject_id = :id", p);
         jdbc.update("DELETE FROM dbo.USER_SUBJECT WHERE subject_id = :id", p);
-        jdbc.update("DELETE FROM dbo.AI_SUGGESTION WHERE subject_id = :id", p);
+        jdbc.update("IF OBJECT_ID('dbo.AI_SUGGESTION', 'U') IS NOT NULL DELETE FROM dbo.AI_SUGGESTION WHERE subject_id = :id", p);
 
         int rows = jdbc.update("DELETE FROM dbo.SUBJECT WHERE subject_id = :id", p);
         if (rows == 0) throw notFound("Course not found.");
@@ -987,7 +1004,7 @@ public class AdminController {
         jdbc.update("DELETE FROM dbo.COMMENT WHERE document_id IN (" + documentIdSql + ")", params);
         jdbc.update("DELETE FROM dbo.CHAT_MESSAGE WHERE session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id IN (" + documentIdSql + "))", params);
         jdbc.update("DELETE FROM dbo.CHAT_SESSION WHERE document_id IN (" + documentIdSql + ")", params);
-        jdbc.update("DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (" + documentIdSql + ")", params);
+        jdbc.update("IF OBJECT_ID('dbo.AI_SUGGESTION', 'U') IS NOT NULL DELETE FROM dbo.AI_SUGGESTION WHERE document_id IN (" + documentIdSql + ")", params);
         jdbc.update("DELETE FROM dbo.AI_SUMMARY WHERE document_id IN (" + documentIdSql + ")", params);
         jdbc.update("DELETE FROM dbo.AI_QUESTION WHERE question_id IN (" + questionIds + ")", params);
         jdbc.update("DELETE FROM dbo.DOCUMENT_SHARE WHERE document_id IN (" + documentIdSql + ")", params);
@@ -1045,7 +1062,7 @@ public class AdminController {
     private Map<String, Object> courseById(Integer id) {
         return one("""
             SELECT subject_id AS id, subject_name AS name, COALESCE(NULLIF(subject_code, ''), CONCAT('SUB-', subject_id)) AS code,
-                   COALESCE(description, '') AS instructor, 0 AS docs, 'Just now' AS updated,
+                   COALESCE(description, '') AS description, 0 AS docs, 'Just now' AS updated,
                    'Active' AS status, 'book' AS icon, '#d1fae5' AS color, '#059669' AS iconColor
             FROM dbo.SUBJECT WHERE subject_id = :id
             """, Map.of("id", id));

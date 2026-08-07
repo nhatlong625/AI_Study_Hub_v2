@@ -532,10 +532,7 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareToken } = {}
   };
   if (docLoading)
     return (
-      <div
-        className="flex items-center justify-center text-gray-400 text-sm"
-        style={{ height: "calc(100vh - 0px)" }}
-      >
+      <div className="flex items-center justify-center text-gray-400 text-sm flex-1 min-h-0">
         Loading document...
       </div>
     );
@@ -543,8 +540,11 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareToken } = {}
   if (!doc)
     return (
       <div
-        className="flex flex-col bg-white"
-        style={{ height: "calc(100vh - 0px)" }}
+        // flex-1 + min-h-0 thay cho 100vh: trang này nằm dưới topbar của
+        // StudentLayout, lấy trọn chiều cao màn hình thì tổng vượt đúng bằng chiều
+        // cao topbar và sinh ra một thanh cuộn ngoài chồng lên các vùng cuộn bên
+        // trong. min-h-0 để vùng cuộn con co lại được thay vì đẩy khung phình ra.
+        className="flex flex-col bg-white flex-1 min-h-0"
       >
         {/* Sub-header */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0">
@@ -660,7 +660,7 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareToken } = {}
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                <p className="text-sm text-gray-600 leading-relaxed mb-4 break-words">
                   {aiSummary.detail}
                 </p>
               )}
@@ -701,10 +701,7 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareToken } = {}
   const canLoadFile = hasPreviewSource(doc);
 
   return (
-    <div
-      className="flex flex-col bg-white"
-      style={{ height: "calc(100vh - 0px)" }}
-    >
+    <div className="flex flex-col bg-white flex-1 min-h-0">
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
           <button
@@ -850,7 +847,9 @@ export default function StudentDocumentViewPage({ _sharedDoc, _shareToken } = {}
                 </p>
                 <p
                   className={
-                    "text-sm leading-relaxed mb-4 " +
+                    // break-words: thông báo lỗi có URL là chuỗi liền không ngắt được,
+                    // rộng hơn panel 340px nên tràn ngang và đẻ ra thanh cuộn thứ hai.
+                    "text-sm leading-relaxed mb-4 break-words " +
                     (aiSummary.status === "error"
                       ? "text-red-500"
                       : "text-gray-600")

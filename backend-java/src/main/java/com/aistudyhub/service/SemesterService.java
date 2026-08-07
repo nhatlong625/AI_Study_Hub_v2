@@ -24,9 +24,11 @@ public class SemesterService {
     private final DocumentRepository documentRepository;
     private final JdbcTemplate jdbcTemplate;
 
-    private List<SemesterResponse> cachedSemesters = null;
-    private long lastCacheTime = 0;
-    private static final long CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+    // Trước đây chỗ này có cache 5 phút tự viết tay, nhưng không có nơi nào xoá cache
+    // khi môn học hoặc học kỳ thay đổi. Hậu quả: admin sửa chương trình học xong thì
+    // "All Majors" vẫn trả dữ liệu cũ tới 5 phút, trong khi chọn từng ngành lại đúng
+    // ngay — vì getSemestersByMajor không hề cache. Bỏ cache để hai đường đi cùng
+    // đọc một nguồn; chi phí đúng bằng nhánh theo ngành vốn vẫn chạy mỗi lần chọn.
 
     /** Lấy danh sách (semester_id -> List<subject_id>) từ SEMESTER_SUBJECT (link phụ) */
     private Map<Integer, List<Integer>> loadLinkedSubjectIds() {
@@ -54,10 +56,6 @@ public class SemesterService {
     }
 
     public List<SemesterResponse> getAllSemesters() {
-        if (cachedSemesters != null && System.currentTimeMillis() - lastCacheTime < CACHE_DURATION_MS) {
-            return cachedSemesters;
-        }
-
         Map<Integer, DocumentRepository.PublicSubjectStats> publicStatsBySubject =
                 documentRepository.findPublicSubjectStats().stream()
                         .collect(Collectors.toMap(
@@ -104,8 +102,6 @@ public class SemesterService {
             return res;
         }).collect(Collectors.toList());
 
-        this.cachedSemesters = response;
-        this.lastCacheTime = System.currentTimeMillis();
         return response;
     }
 

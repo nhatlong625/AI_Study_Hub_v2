@@ -130,7 +130,7 @@ function StudentLayout() {
             />
             {/* flex-1 để main luôn phủ hết chiều cao còn lại; thiếu nó thì trang
                 nội dung ngắn sẽ lộ nền của div ngoài cùng thành 2 mảng màu. */}
-            <main className="p-0 bg-gray-50 flex-1">
+            <main className="p-0 bg-gray-50 flex-1 flex flex-col">
               {/* Bọc quanh Outlet để trang lỗi chỉ chết vùng nội dung,
                   sidebar và topbar vẫn dùng được. */}
               <ErrorBoundary resetKey={pathname}>

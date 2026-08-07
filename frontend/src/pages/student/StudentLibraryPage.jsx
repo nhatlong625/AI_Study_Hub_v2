@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import {
   libraryApi,
+  semesterApi,
   userSubjectApi,
 } from "../../services/libraryApi";
 import {
@@ -60,6 +61,105 @@ const MoreIcon = () => (
   </svg>
 );
 
+/**
+ * Bộ lọc ngành cho Library.
+ *
+ * Dựng riêng thay vì dùng MajorSelector của Home: cái đó là nút pill viền tím bề ngang
+ * cố định, đặt cạnh nút Create course sẽ thành hai kiểu nút chỏi nhau. Ở đây lấy đúng
+ * hình dáng nút Create course nhưng ở sắc độ phụ, để cặp nút đọc như một bộ.
+ */
+function MajorFilterDropdown({ majors, selectedMajorId, onSelect }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const activeMajor = majors.find((m) => m.majorId === selectedMajorId);
+
+  return (
+    <div className="relative">
+      {isOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+      )}
+      <button
+        onClick={() => setIsOpen((prev) => !prev)}
+        // Bề ngang cố định: nhãn dài ngắn khác nhau theo tên ngành, để nó co giãn
+        // thì nút Create course bên cạnh bị đẩy chạy ngang mỗi lần đổi bộ lọc.
+        className="flex items-center justify-between gap-2 w-[200px] px-5 py-2.5 bg-white border border-gray-200 hover:border-indigo-400 text-gray-700 hover:text-indigo-600 text-sm font-semibold rounded-xl transition-colors"
+        title={activeMajor?.majorName || "All majors"}
+      >
+        <span className="truncate">
+          {activeMajor?.majorName || "All majors"}
+        </span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          className={
+            "flex-shrink-0 transition-transform " + (isOpen ? "rotate-180" : "")
+          }
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-12 z-50 w-[240px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden py-1">
+          <button
+            onClick={() => {
+              onSelect(null);
+              setIsOpen(false);
+            }}
+            className={
+              "w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium text-left transition-colors " +
+              (selectedMajorId == null
+                ? "bg-indigo-50 text-indigo-700"
+                : "text-gray-700 hover:bg-gray-50")
+            }
+          >
+            All majors
+            {selectedMajorId == null && <CheckIcon />}
+          </button>
+          {majors.map((m) => {
+            const isSelected = selectedMajorId === m.majorId;
+            return (
+              <button
+                key={m.majorId}
+                onClick={() => {
+                  onSelect(m.majorId);
+                  setIsOpen(false);
+                }}
+                className={
+                  "w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium text-left transition-colors " +
+                  (isSelected
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-gray-700 hover:bg-gray-50")
+                }
+              >
+                <span className="truncate">{m.majorName}</span>
+                {isSelected && <CheckIcon />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CheckIcon = () => (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    className="flex-shrink-0"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
 function semesterOrderValue(semester = {}) {
   const nameNumber = String(semester.semesterName || "").match(/\d+/);
   if (nameNumber) return Number(nameNumber[0]);
@@ -68,20 +168,67 @@ function semesterOrderValue(semester = {}) {
 }
 
 // CreateCourseModal.
-// Normalized note.
-function CreateCourseModal({
-  allSemesters,
-  userSubjectIds,
-  onClose,
-  onCreated,
-}) {
+// Ngành đứng trước học kỳ vì học kỳ được lưu gắn với ngành: chọn ngành trước thì
+// danh sách kỳ đã đúng sẵn, không phải gộp các bản ghi trùng tên của nhiều ngành.
+// Ngành của người dùng chỉ được xếp lên đầu chứ không lọc bỏ ngành khác — họ vẫn
+// có thể thêm môn đại cương hoặc môn của ngành mình không theo học.
+function CreateCourseModal({ userMajorId, userSubjectIds, onClose, onCreated }) {
   const [step, setStep] = useState(1);
+  const [majors, setMajors] = useState([]);
+  const [loadingMajors, setLoadingMajors] = useState(true);
+  const [selectedMajor, setSelectedMajor] = useState(null);
+  const [semesters, setSemesters] = useState([]);
+  const [loadingSemesters, setLoadingSemesters] = useState(false);
   const [selectedSem, setSelectedSem] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [search, setSearch] = useState("");
+  const [majorSearch, setMajorSearch] = useState("");
+  const [semesterSearch, setSemesterSearch] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const searchRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    libraryApi
+      .getMajors()
+      .then((data) => {
+        if (cancelled) return;
+        const active = (Array.isArray(data) ? data : []).filter(
+          (m) => m.isActive !== false,
+        );
+        // Ngành đang theo học lên đầu — phần lớn môn được thêm là của ngành đó.
+        active.sort((a, b) => {
+          const aMine = Number(a.majorId) === Number(userMajorId) ? 0 : 1;
+          const bMine = Number(b.majorId) === Number(userMajorId) ? 0 : 1;
+          if (aMine !== bMine) return aMine - bMine;
+          return String(a.majorName || "").localeCompare(String(b.majorName || ""));
+        });
+        setMajors(active);
+      })
+      .catch(() => {
+        if (!cancelled) setMajors([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMajors(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userMajorId]);
+
+  const filteredMajors = majors.filter((m) => {
+    const query = majorSearch.trim().toLowerCase();
+    if (!query) return true;
+    return `${m.majorName || ""}`.toLowerCase().includes(query);
+  });
+
+  const filteredSemesters = semesters.filter((sem) => {
+    const query = semesterSearch.trim().toLowerCase();
+    if (!query) return true;
+    return `${sem.semesterName || ""}`.toLowerCase().includes(query);
+  });
 
   // Normalized note.
   const availableSubjects = selectedSem
@@ -100,13 +247,50 @@ function CreateCourseModal({
     );
   });
 
+  function handleSelectMajor(major) {
+    setSelectedMajor(major);
+    setSelectedSem(null);
+    setSelectedSubject(null);
+    setSemesters([]);
+    setError("");
+    // Xoá từ khoá cũ: giữ lại thì bước kỳ mở ra đã bị lọc sẵn bởi thứ người dùng
+    // gõ cho danh sách khác, trông như ngành này thiếu học kỳ.
+    setSemesterSearch("");
+    setStep(2);
+    setLoadingSemesters(true);
+    semesterApi
+      .getAll(major.majorId)
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        list.sort((a, b) => semesterOrderValue(a) - semesterOrderValue(b));
+        setSemesters(list);
+      })
+      .catch((err) => {
+        setSemesters([]);
+        setError(err.message || "Could not load semesters.");
+      })
+      .finally(() => setLoadingSemesters(false));
+  }
+
   function handleSelectSemester(sem) {
     setSelectedSem(sem);
     setSelectedSubject(null);
-    setStep(2);
+    setStep(3);
     setSearch("");
     setError("");
     setTimeout(() => searchRef.current?.focus(), 50);
+  }
+
+  function goBack() {
+    if (step === 3) {
+      setStep(2);
+      setSelectedSem(null);
+      setSelectedSubject(null);
+    } else if (step === 2) {
+      setStep(1);
+      setSelectedMajor(null);
+      setSemesters([]);
+    }
   }
 
   async function handleCreate() {
@@ -131,14 +315,11 @@ function CreateCourseModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl w-full max-w-[480px] mx-4 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-gray-100">
-          <div>
-            {step === 2 && (
+        <div className="flex items-start justify-between px-7 pt-6 pb-4 border-b border-gray-100">
+          <div className="min-w-0">
+            {step > 1 && (
               <button
-                onClick={() => {
-                  setStep(1);
-                  setSelectedSem(null);
-                }}
+                onClick={goBack}
                 className="flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-600 mb-1 transition-colors"
               >
                 <svg
@@ -155,17 +336,25 @@ function CreateCourseModal({
               </button>
             )}
             <h2 className="text-xl font-black text-gray-900">
-              {step === 1 ? "Select Semester" : "Add course"}
+              {step === 1
+                ? "Select Major"
+                : step === 2
+                  ? "Select Semester"
+                  : "Add course"}
             </h2>
-            {step === 2 && selectedSem?.semesterName && (
-              <p className="text-xl font-black text-gray-900 mt-0.5">
-                {selectedSem.semesterName}
+            {step > 1 && (
+              <p className="text-xs text-gray-500 mt-1 truncate">
+                {[selectedMajor?.majorName, selectedSem?.semesterName]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             )}
             <p className="text-sm text-gray-400 mt-0.5">
               {step === 1
-                ? "Which semester does this course belong to?"
-                : "Select a course to add to your Library"}
+                ? "Which major does this course belong to?"
+                : step === 2
+                  ? "Which semester does this course belong to?"
+                  : "Select a course to add to your Library"}
             </p>
           </div>
           <button
@@ -186,36 +375,105 @@ function CreateCourseModal({
         </div>
 
         {/* Body */}
-        <div className="px-7 py-5">
+        {/* min-h cố định để hộp không phình ra/co lại khi đổi bước — modal canh giữa
+            màn hình nên mỗi lần đổi chiều cao là cả nội dung nhảy chỗ. Danh sách vốn
+            đã tự cuộn, nên bước ít mục chỉ dư khoảng trắng chứ không tràn. */}
+        <div className="px-7 py-5 min-h-[336px]">
           {step === 1 ? (
-            <div className="flex flex-col gap-2">
-              {allSemesters.map((sem) => {
-                const badge = SEMESTER_BADGE[sem.semesterName] ?? {
-                  bg: "bg-gray-100",
-                  text: "text-gray-600",
-                  id: "S?",
-                };
-                return (
-                  <button
-                    key={sem.semesterId}
-                    onClick={() => handleSelectSemester(sem)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left"
-                  >
-                    <div
-                      className={`w-9 h-9 rounded-lg ${badge.bg} ${badge.text} flex items-center justify-center text-xs font-bold flex-shrink-0`}
+            <>
+              <input
+                type="text"
+                value={majorSearch}
+                onChange={(e) => setMajorSearch(e.target.value)}
+                placeholder="Search majors..."
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 transition-all mb-3"
+              />
+              <div className="max-h-72 overflow-y-auto flex flex-col gap-2 px-1 -mx-1 py-1">
+              {loadingMajors ? (
+                <p className="text-sm text-gray-400 text-center py-6">Loading...</p>
+              ) : filteredMajors.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">
+                  {majors.length === 0
+                    ? "No majors available."
+                    : "No majors match your search."}
+                </p>
+              ) : (
+                filteredMajors.map((m) => {
+                  const isMine = Number(m.majorId) === Number(userMajorId);
+                  return (
+                    <button
+                      key={m.majorId}
+                      onClick={() => handleSelectMajor(m)}
+                      className={
+                        "flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left " +
+                        (isMine
+                          ? "border-indigo-300 bg-indigo-50/60 hover:bg-indigo-50"
+                          : "border-gray-200 hover:border-indigo-400 hover:bg-indigo-50")
+                      }
                     >
-                      {badge.id}
-                    </div>
-                    <span className="text-sm font-semibold text-gray-800">
-                      {sem.semesterName}
-                    </span>
-                    <span className="ml-auto text-xs text-gray-400">
-                      {(sem.subjects ?? []).length} courses
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <span className="flex-1 min-w-0 text-sm font-semibold text-gray-800 truncate">
+                        {m.majorName}
+                      </span>
+                      {isMine && (
+                        <span className="text-[10px] font-bold tracking-wider text-indigo-600 uppercase flex-shrink-0">
+                          Your major
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+              </div>
+            </>
+          ) : step === 2 ? (
+            <>
+              <input
+                type="text"
+                value={semesterSearch}
+                onChange={(e) => setSemesterSearch(e.target.value)}
+                placeholder="Search semesters..."
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 transition-all mb-3"
+              />
+              <div className="max-h-72 overflow-y-auto flex flex-col gap-2 px-1 -mx-1 py-1">
+              {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+              {loadingSemesters ? (
+                <p className="text-sm text-gray-400 text-center py-6">Loading...</p>
+              ) : filteredSemesters.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">
+                  {semesters.length === 0
+                    ? "This major has no semesters yet."
+                    : "No semesters match your search."}
+                </p>
+              ) : (
+                filteredSemesters.map((sem) => {
+                  const badge = SEMESTER_BADGE[sem.semesterName] ?? {
+                    bg: "bg-gray-100",
+                    text: "text-gray-600",
+                    id: "S?",
+                  };
+                  return (
+                    <button
+                      key={sem.semesterId}
+                      onClick={() => handleSelectSemester(sem)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left"
+                    >
+                      <div
+                        className={`w-9 h-9 rounded-lg ${badge.bg} ${badge.text} flex items-center justify-center text-xs font-bold flex-shrink-0`}
+                      >
+                        {badge.id}
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">
+                        {sem.semesterName}
+                      </span>
+                      <span className="ml-auto text-xs text-gray-400">
+                        {(sem.subjects ?? []).length} courses
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+              </div>
+            </>
           ) : (
             <>
               <input
@@ -227,7 +485,10 @@ function CreateCourseModal({
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 transition-all mb-3"
               />
               {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
-              <div className="max-h-80 overflow-y-auto flex flex-col gap-1">
+              {/* px-1/py-1 chừa chỗ cho ring của item đang chọn — ring vẽ ngoài viền nên
+                  item đầu và cuối sẽ bị vùng cuộn cắt mất nếu container sát mép.
+                  -mx-1 kéo lại để danh sách vẫn thẳng hàng với ô tìm kiếm phía trên. */}
+              <div className="max-h-80 overflow-y-auto flex flex-col gap-1 px-1 -mx-1 py-1">
                 {filtered.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-6">
                     {availableSubjects.length === 0
@@ -290,7 +551,7 @@ function CreateCourseModal({
           )}
         </div>
 
-        {step === 2 && availableSubjects.length > 0 && (
+        {step === 3 && availableSubjects.length > 0 && (
           <div className="flex justify-end gap-2 px-7 py-4 border-t border-gray-100">
             <button
               onClick={onClose}
@@ -329,6 +590,8 @@ export default function StudentLibraryPage() {
   const [docStorage, setDocStorage] = useState({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  // null = All majors.
+  const [filterMajorId, setFilterMajorId] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
   // actionMenu stores the active semester and menu step.
   const [actionMenu, setActionMenu] = useState(null);
@@ -430,17 +693,41 @@ export default function StudentLibraryPage() {
     };
   });
 
-  const grouped = [...allSemesters]
+  const semesterRows = [...allSemesters]
     .map((sem) => {
       const subjects = userSubjects.filter((us) => us.semesterId === sem.semesterId);
       return {
         semesterName: sem.semesterName,
         semesterId: sem.semesterId,
+        majorId: sem.majorId ?? null,
+        majorName: sem.majorName ?? null,
         subjects,
       };
     })
     .filter((sem) => sem.subjects.length > 0)
     .sort((a, b) => semesterOrderValue(a) - semesterOrderValue(b));
+
+  // Bộ lọc ngành chỉ có nghĩa khi Library thật sự trải trên nhiều ngành. Người chỉ
+  // học một ngành mà thấy dropdown một mục thì đó là thứ thừa trên màn hình.
+  const majorsInLibrary = [];
+  semesterRows.forEach((row) => {
+    if (row.majorId == null) return;
+    if (majorsInLibrary.some((m) => m.majorId === row.majorId)) return;
+    majorsInLibrary.push({
+      majorId: row.majorId,
+      majorName: row.majorName || `Major ${row.majorId}`,
+    });
+  });
+  majorsInLibrary.sort((a, b) => a.majorName.localeCompare(b.majorName));
+  const showMajorFilter = majorsInLibrary.length > 1;
+
+  // Kỳ dùng chung (majorId null) thuộc về mọi ngành nên luôn hiện, không lọc bỏ.
+  const grouped =
+    showMajorFilter && filterMajorId != null
+      ? semesterRows.filter(
+          (row) => row.majorId == null || row.majorId === filterMajorId,
+        )
+      : semesterRows;
 
   const totalCourses = userSubjects.length;
   const storageLabel = formatStorageBytes(totalStorageBytes);
@@ -507,7 +794,7 @@ export default function StudentLibraryPage() {
   }
 
   return (
-    <div className="p-7 bg-gray-50 min-h-screen">
+    <div className="p-7 bg-gray-50">
       {actionMenu && (
         <div
           className="fixed inset-0 z-40"
@@ -527,7 +814,7 @@ export default function StudentLibraryPage() {
 
       {showCreate && (
         <CreateCourseModal
-          allSemesters={allSemesters}
+          userMajorId={selectedMajorId}
           userSubjectIds={userSubjectIds}
           onClose={() => setShowCreate(false)}
           onCreated={handleCourseCreated}
@@ -538,23 +825,34 @@ export default function StudentLibraryPage() {
         title="Library"
         description="My courses organized by semester."
         action={
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
+          <div className="flex items-center gap-2.5">
+            {/* Chỉ hiện khi Library trải trên nhiều ngành. Một mục thì không lọc được
+                gì, chỉ chiếm chỗ. Dropdown đặt cạnh nút chính cho khớp với Home. */}
+            {showMajorFilter && (
+              <MajorFilterDropdown
+                majors={majorsInLibrary}
+                selectedMajorId={filterMajorId}
+                onSelect={setFilterMajorId}
+              />
+            )}
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors"
             >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Create course
-          </button>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Create course
+            </button>
+          </div>
         }
       />
 
@@ -705,7 +1003,7 @@ export default function StudentLibraryPage() {
             </p>
           </div>
         ) : (
-          grouped.map(({ semesterName, semesterId, subjects }, i) => {
+          grouped.map(({ semesterName, semesterId, majorName, subjects }, i) => {
             const badge = SEMESTER_BADGE[semesterName] ?? {
               bg: "bg-gray-100",
               text: "text-gray-600",
@@ -714,7 +1012,9 @@ export default function StudentLibraryPage() {
             const isMenuOpen = actionMenu?.semesterId === semesterId;
             return (
               <div
-                key={semesterName}
+                // Theo semesterId chứ không theo tên: hai ngành đều có "Semester 5"
+                // nên tên không phải danh tính duy nhất.
+                key={semesterId}
                 className={
                   "grid grid-cols-[1fr_130px_100px_70px] px-5 py-5 items-center hover:bg-gray-50 transition-colors" +
                   (i < grouped.length - 1 ? " border-b border-gray-200" : "")
@@ -727,8 +1027,18 @@ export default function StudentLibraryPage() {
                     {badge.id}
                   </div>
                   <div className="flex-1">
-                    <div className="text-base font-black text-indigo-600 mb-2">
-                      {semesterName}
+                    <div className="mb-2">
+                      <span className="text-base font-black text-indigo-600">
+                        {semesterName}
+                      </span>
+                      {/* Mỗi ngành có bộ học kỳ riêng nên "Semester 5" xuất hiện nhiều
+                          lần khi Library trải trên nhiều ngành. Ghi tên ngành để phân
+                          biệt, thay vì gộp hai chương trình đào tạo khác nhau làm một. */}
+                      {showMajorFilter && majorName && (
+                        <span className="ml-2 px-2 py-0.5 rounded-md bg-gray-100 text-[11px] font-bold text-gray-500 align-middle">
+                          {majorName}
+                        </span>
+                      )}
                     </div>
                     {subjects.length === 0 ? (
                       <p className="text-xs text-gray-400 italic">

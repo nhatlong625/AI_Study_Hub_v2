@@ -4,7 +4,6 @@ import PageHeader from '../../components/common/PageHeader';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
 import { adminService } from '../../services/adminService';
-import { reviewQueue as reviewQueueMock } from '../../mocks/adminMock';
 
 function normalizeReviewItem(item) {
   return {
@@ -32,8 +31,8 @@ function QuestionReviewQueuePage() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err.message || 'Backend unavailable. Showing fallback review queue.');
-          setItems(reviewQueueMock.map(normalizeReviewItem));
+          setError(err.message || 'Unable to load the review queue.');
+          setItems([]);
         }
       })
       .finally(() => {

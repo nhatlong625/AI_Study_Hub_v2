@@ -29,12 +29,16 @@ const SparklesIcon = ({ className = "w-3.5 h-3.5" }) => (
   </svg>
 );
 
-const BookOpenIcon = ({ className = "w-5 h-5" }) => (
-  <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-    <path d="M22 3h-6a4 4 0 0 1 3-3h7z" />
-  </svg>
-);
+// Mỗi mục trong danh sách chỉ có tên ngành + mô tả, không kèm icon: icon dùng
+// chung một hình cho mọi ngành thì không giúp phân biệt, còn viết tắt theo tên
+// thì lặp lại đúng thứ đã nằm ngay cạnh nó.
+
+// Ngành dành cho sinh viên chưa được chọn chuyên ngành: trường bắt học xong kỳ
+// chuẩn bị mới cho chọn. Trước đây màn này chỉ liệt kê chuyên ngành, nên sinh viên
+// mới buộc phải khai bừa một ngành rồi lại không thấy chính môn mình đang học.
+const PREPARATION_MAJOR = "Preparation";
+
+const isPreparation = (major) => major?.majorName === PREPARATION_MAJOR;
 
 export default function MajorOnboardingModal({ isOpen, onClose, onMajorSelected }) {
   const [majors, setMajors] = useState([]);
@@ -51,9 +55,15 @@ export default function MajorOnboardingModal({ isOpen, onClose, onMajorSelected 
         const data = await libraryApi.getMajors();
         if (isMounted && Array.isArray(data)) {
           const activeList = data.filter((m) => m.isActive !== false);
-          setMajors(activeList);
-          if (activeList.length > 0) {
-            setSelectedId(activeList[0].majorId);
+          // Preparation lên đầu và được chọn sẵn: đây là đáp án đúng cho phần lớn
+          // người gặp màn này, vì họ vừa tạo tài khoản và chưa có chuyên ngành.
+          const ordered = [
+            ...activeList.filter(isPreparation),
+            ...activeList.filter((m) => !isPreparation(m)),
+          ];
+          setMajors(ordered);
+          if (ordered.length > 0) {
+            setSelectedId(ordered[0].majorId);
           }
         }
       } catch (err) {
@@ -123,6 +133,8 @@ export default function MajorOnboardingModal({ isOpen, onClose, onMajorSelected 
           </h2>
           <p className="text-sm text-slate-400 mb-6 leading-relaxed">
             Choose your current major so we can personalize your learning path, show relevant courses, and filter semesters automatically.
+            Still in the preparation semester? Pick <span className="text-slate-200 font-medium">Preparation</span> — you can switch to your
+            specialization from your profile once you finish it.
           </p>
 
           {loading ? (
@@ -146,7 +158,9 @@ export default function MajorOnboardingModal({ isOpen, onClose, onMajorSelected 
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="max-h-64 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
+              {/* Mỗi mục cao hơn từ khi mô tả được xuống dòng đầy đủ, nới vùng cuộn
+                  để vẫn thấy được vài lựa chọn cùng lúc thay vì mỗi lần một cái. */}
+              <div className="max-h-80 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
                 {majors.map((m) => {
                   const isSelected = selectedId === m.majorId;
                   return (
@@ -159,16 +173,25 @@ export default function MajorOnboardingModal({ isOpen, onClose, onMajorSelected 
                           : "bg-white/5 border-white/10 hover:border-indigo-500/40 text-slate-300 hover:text-white"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-xl ${isSelected ? "bg-indigo-500/20 text-indigo-300" : "bg-white/5 text-slate-400"}`}>
-                          <BookOpenIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm">{m.majorName}</div>
-                          {m.description && (
-                            <div className="text-xs text-slate-400 line-clamp-1 mt-0.5">{m.description}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{m.majorName}</span>
+                          {/* Nhãn để người mới nhận ra ngay đâu là lựa chọn dành cho mình,
+                              thay vì phải đọc hết danh sách chuyên ngành rồi đoán. */}
+                          {isPreparation(m) && (
+                            <span className="shrink-0 rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                              Start here
+                            </span>
                           )}
                         </div>
+                        {/* Không cắt một dòng nữa: đây là màn bắt buộc chọn ngành mà
+                            không có chỗ nào khác xem mô tả, cắt đi thì người dùng phải
+                            quyết định trên thông tin dở dang. Danh sách vốn đã cuộn được. */}
+                        {m.description && (
+                          <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                            {m.description}
+                          </div>
+                        )}
                       </div>
                       {isSelected && (
                         <CheckCircleIcon className="w-5 h-5 text-indigo-400 shrink-0 ml-2" />

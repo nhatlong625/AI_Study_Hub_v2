@@ -37,6 +37,10 @@ public class Document {
     @Column(name = "visibility_status", length = 20)
     private String visibilityStatus;
 
+    /** SHA-256 (hex) của đúng số byte đã ghi vào storage. Null với tài liệu tải lên trước khi có cột này. */
+    @Column(name = "file_hash", length = 64)
+    private String fileHash;
+
     @Column(name = "status", length = 20)
     private String status;
 

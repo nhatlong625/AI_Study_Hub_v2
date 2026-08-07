@@ -223,7 +223,7 @@ export default function StudentProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-10 text-center text-gray-400 text-sm bg-gray-50 min-h-screen">
+      <div className="p-10 text-center text-gray-400 text-sm bg-gray-50">
         Loading profile...
       </div>
     );
@@ -279,7 +279,7 @@ export default function StudentProfilePage() {
   }
 
   return (
-    <div className="p-7 bg-gray-50 min-h-screen">
+    <div className="p-7 bg-gray-50">
       {/* ── Header card ──────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
         <div className="flex flex-col lg:flex-row lg:items-center gap-6">

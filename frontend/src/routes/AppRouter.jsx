@@ -98,7 +98,7 @@ const RouteLoading = () => (
 
 // ── Placeholder cho tính năng chưa làm ───────────────────────
 const ComingSoon = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen text-gray-400">
+  <div className="flex flex-1 flex-col items-center justify-center text-gray-400">
     <p className="text-lg font-semibold">Coming Soon</p>
     <p className="text-sm mt-1">This feature is under development.</p>
   </div>

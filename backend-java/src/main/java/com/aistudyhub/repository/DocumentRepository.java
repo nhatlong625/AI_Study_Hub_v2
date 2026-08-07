@@ -12,6 +12,8 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
     interface LibrarySubjectStats {
         Integer getSemesterId();
         String getSemesterName();
+        Integer getMajorId();
+        String getMajorName();
         Integer getSubjectId();
         String getSubjectCode();
         String getSubjectName();
@@ -36,6 +38,8 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
     @Query(value = """
             SELECT sem.semester_id AS semesterId,
                    sem.semester_name AS semesterName,
+                   sem.major_id AS majorId,
+                   m.major_name AS majorName,
                    s.subject_id AS subjectId,
                    s.subject_code AS subjectCode,
                    s.subject_name AS subjectName,
@@ -46,6 +50,8 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
                    MAX(d.created_at) AS latestDocumentAt
             FROM SUBJECT s
             JOIN SEMESTER sem ON sem.semester_id = s.semester_id
+            -- LEFT JOIN: học kỳ dùng chung cho mọi ngành có major_id NULL.
+            LEFT JOIN MAJOR m ON m.major_id = sem.major_id
             LEFT JOIN USER_SUBJECT us ON us.subject_id = s.subject_id
                 AND us.user_id = :userId
             LEFT JOIN DOCUMENT d ON d.subject_id = s.subject_id
@@ -53,7 +59,7 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
                 AND us.user_subject_id IS NOT NULL
                 AND d.deleted_at IS NULL
                 AND LOWER(d.document_name) NOT LIKE 'mock-%'
-            GROUP BY sem.semester_id, sem.semester_name,
+            GROUP BY sem.semester_id, sem.semester_name, sem.major_id, m.major_name,
                      s.subject_id, s.subject_code, s.subject_name, s.description
             ORDER BY sem.semester_id, s.subject_name
             """, nativeQuery = true)
@@ -120,4 +126,36 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
     List<Document> findBySubjectIdAndVisibilityStatusAndDeletedAtIsNull(Integer subjectId, String visibilityStatus);
     List<Document> findByVisibilityStatus(String visibilityStatus);
     List<Document> findByVisibilityStatusAndDeletedAtIsNull(String visibilityStatus);
+
+    /**
+     * Đã có tài liệu khác cùng nội dung đang công khai (hoặc đang chờ duyệt) chưa.
+     * Loại chính tài liệu đang xét ra để việc nộp lại sau khi bị từ chối không tự chặn mình.
+     */
+    @Query("""
+            SELECT COUNT(d) > 0 FROM Document d
+            WHERE d.fileHash = :fileHash
+              AND d.documentId <> :excludeDocumentId
+              AND d.deletedAt IS NULL
+              AND d.visibilityStatus IN ('PUBLIC', 'PENDING_REVIEW')
+            """)
+    boolean existsPublishedDuplicate(@Param("fileHash") String fileHash,
+                                     @Param("excludeDocumentId") Integer excludeDocumentId);
+
+    /**
+     * Nội dung này đã từng bị từ chối duyệt trong cùng môn học chưa.
+     * Giới hạn theo môn vì AI chấm điểm mức liên quan của tài liệu với môn được gán —
+     * cùng một file có thể không hợp môn này nhưng hợp môn khác.
+     */
+    @Query(value = """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                FROM DOCUMENT d
+                JOIN PUBLIC_REVIEW_LOG l ON l.document_id = d.document_id
+                WHERE d.file_hash = :fileHash
+                  AND d.subject_id = :subjectId
+                  AND l.review_status IN ('REJECTED', 'ADMIN_REJECTED')
+            ) THEN 1 ELSE 0 END
+            """, nativeQuery = true)
+    boolean existsRejectedContentInSubject(@Param("fileHash") String fileHash,
+                                           @Param("subjectId") Integer subjectId);
 }

@@ -114,7 +114,7 @@ export default function StudentCourseDetailPage() {
   };
 
   return (
-    <div className="p-7 bg-gray-50 min-h-screen">
+    <div className="p-7 bg-gray-50">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-2">
         <button

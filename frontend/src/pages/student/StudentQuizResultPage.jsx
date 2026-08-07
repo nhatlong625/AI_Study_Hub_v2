@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { practiceTestApi } from "../../services/practiceTestApi";
 import logoIcon from "../../assets/logos/logo-icon.png";
@@ -203,8 +203,6 @@ function StudentQuizResultPage() {
     : questions;
 
   // AI fields — null nếu BE chưa trả
-  const aiAnalysis = result.aiAnalysis ?? null;
-  const topicsToReview = result.topicsToReview ?? null; // [{topic, missed}]
   const sourceMaterial = result.sourceMaterial ?? null; // [{name, url}]
 
   const gradeColor =
@@ -314,12 +312,8 @@ function StudentQuizResultPage() {
         </div>
       </div>
 
-      {/* ── Top row: Score card + AI/Topics/Sources ── */}
-      <div
-        className="grid gap-5 mb-5"
-        style={{ gridTemplateColumns: "1fr 1fr" }}
-      >
-        {/* Score card */}
+      {/* ── Score card ── */}
+      <div className="mb-5">
         <div
           className="bg-white rounded-2xl p-7"
           style={{ border: "1px solid #e5e7eb" }}
@@ -374,169 +368,63 @@ function StudentQuizResultPage() {
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Right column */}
-        <div className="flex flex-col gap-4">
-          {/* AI Performance Analysis */}
+          {/* Nguồn tài liệu — gộp vào thẻ kết quả thay vì đứng riêng: nó chỉ là một
+              dòng siêu dữ liệu của chính bài kiểm tra này, tách ra thành thẻ riêng
+              khiến một dòng chữ chiếm bằng chỗ của cả khối điểm. */}
           <div
-            className="bg-white rounded-2xl p-5"
-            style={{ border: "1px solid #e5e7eb" }}
+            className="flex items-center gap-2 flex-wrap pt-4 mt-4"
+            style={{ borderTop: "1px solid #f3f4f6" }}
           >
-            <div className="flex items-center gap-2 mb-3">
-              <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center"
-                style={{ background: "#6366f1" }}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="white"
-                  stroke="none"
-                >
-                  <path d="M12 2C12 2 13 8 18 9C13 10 12 16 12 16C12 16 11 10 6 9C11 8 12 2 12 2Z" />
-                </svg>
-              </div>
-              <span className="text-sm font-bold" style={{ color: "#111827" }}>
-                AI Performance Analysis
-              </span>
-            </div>
-            {aiAnalysis ? (
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: "#6b7280" }}
-              >
-                {aiAnalysis}
-              </p>
-            ) : (
-              <p className="text-sm italic" style={{ color: "#9ca3af" }}>
-                AI analysis will be available in a future update.
-              </p>
-            )}
-          </div>
-
-          {/* Topics to Review + Source Material */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Topics to Review */}
-            <div
-              className="bg-white rounded-2xl p-4"
-              style={{ border: "1px solid #e5e7eb" }}
+            <span
+              className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: "#9ca3af" }}
             >
-              <div className="flex items-center gap-1.5 mb-3">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#f59e0b"
-                  strokeWidth="2"
+              Source
+            </span>
+            {sourceMaterial ? (
+              sourceMaterial.map((s) => (
+                <a
+                  key={s.name}
+                  href={s.url || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-xs font-medium hover:underline"
+                  style={{ color: "#6366f1" }}
                 >
-                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                <span
-                  className="text-xs font-bold"
-                  style={{ color: "#111827" }}
-                >
-                  Topics to Review
-                </span>
-              </div>
-              {topicsToReview ? (
-                <div className="flex flex-col gap-2">
-                  {topicsToReview.map((t) => (
-                    <div
-                      key={t.topic}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-xs" style={{ color: "#374151" }}>
-                        {t.topic}
-                      </span>
-                      <span
-                        className="text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={{ background: "#fee2e2", color: "#991b1b" }}
-                      >
-                        {t.missed} missed
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs italic" style={{ color: "#9ca3af" }}>
-                  Coming soon
-                </p>
-              )}
-            </div>
-
-            {/* Source Material */}
-            <div
-              className="bg-white rounded-2xl p-4"
-              style={{ border: "1px solid #e5e7eb" }}
-            >
-              <div className="flex items-center gap-1.5 mb-3">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#6366f1"
-                  strokeWidth="2"
-                >
-                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-                </svg>
-                <span
-                  className="text-xs font-bold"
-                  style={{ color: "#111827" }}
-                >
-                  Source Material
-                </span>
-              </div>
-              {sourceMaterial ? (
-                <div className="flex flex-col gap-2">
-                  {sourceMaterial.map((s) => (
-                    <a
-                      key={s.name}
-                      href={s.url || "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 text-xs hover:underline"
-                      style={{ color: "#6366f1" }}
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                      </svg>
-                      {s.name}
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
                   <svg
                     width="12"
                     height="12"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="#6366f1"
+                    stroke="currentColor"
                     strokeWidth="2"
                   >
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
-                  <span className="text-xs" style={{ color: "#6366f1" }}>
-                    {result.source || "—"}
-                  </span>
-                </div>
-              )}
-            </div>
+                  {s.name}
+                </a>
+              ))
+            ) : (
+              <span
+                className="flex items-center gap-1.5 text-xs font-medium"
+                style={{ color: "#6366f1" }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                {result.source || "—"}
+              </span>
+            )}
           </div>
         </div>
       </div>

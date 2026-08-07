@@ -218,6 +218,8 @@ Gợi ý:
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Phải chạy bằng `uvicorn`. Chạy `python main.py` sẽ thoát ngay lập tức mà không báo lỗi, vì `main.py` chỉ khai báo object `app` chứ không có block `if __name__ == "__main__"` để tự khởi động server.
+
 Python AI service chạy tại:
 
 ```text

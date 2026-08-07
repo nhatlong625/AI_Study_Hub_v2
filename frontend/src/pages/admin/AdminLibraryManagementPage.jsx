@@ -9,8 +9,19 @@ const ICON_MAP = {
 };
 
 const EMPTY_FORM = { name: '' };
-const EMPTY_COURSE_FORM = { name: '', code: '', instructor: '', status: 'Active' };
+const EMPTY_COURSE_FORM = { name: '', code: '', description: '', status: 'Active' };
 import { API_BASE_URL as API_BASE } from '../../config/api';
+
+// /library/semesters returns the course count as `courses`; /majors/{id}/semesters
+// returns the same number as `subjects` and omits `storage`. Normalize both shapes
+// so the stat cards and the table never read an undefined field.
+function normalizeSemester(semester) {
+  return {
+    ...semester,
+    courses: Number(semester.courses ?? semester.subjects ?? 0),
+    docs: Number(semester.docs ?? 0),
+  };
+}
 
 function formatDocumentSize(bytes) {
   const value = Number(bytes || 0);
@@ -147,7 +158,7 @@ function LibraryManagementPage() {
       } else {
         semesters = await adminService.getLibrarySemesters();
       }
-      setLibrarySemesters(semesters);
+      setLibrarySemesters((Array.isArray(semesters) ? semesters : []).map(normalizeSemester));
       setSelectedSemester(current => {
         if (!current) return current;
         return semesters.find(semester => semester.id === current.id) || null;
@@ -387,7 +398,7 @@ function LibraryManagementPage() {
     setEditCourseForm({
       name: course.name || '',
       code: course.code || '',
-      instructor: course.instructor || '',
+      description: course.description || '',
       status: course.status || 'Active',
     });
   }
@@ -941,19 +952,14 @@ function LibraryManagementPage() {
               </div>
 
               <div className="lib-form-group">
-                <label className="lib-form-label">Instructor</label>
-                <input
-                  className="lib-form-input"
-                  type="text"
-                  placeholder="e.g. Dr. Alan Turing"
-                  value={createCourseForm.instructor}
-                  onChange={e => setCreateCourseForm(form => ({ ...form, instructor: e.target.value }))}
+                <label className="lib-form-label">Description</label>
+                <textarea
+                  className="lib-form-textarea"
+                  rows={8}
+                  placeholder="Brief description of the course..."
+                  value={createCourseForm.description}
+                  onChange={e => setCreateCourseForm(form => ({ ...form, description: e.target.value }))}
                 />
-              </div>
-
-              <div className="lib-form-group">
-                <label className="lib-form-label">Description (Optional)</label>
-                <textarea className="lib-form-textarea" rows={3} placeholder="Brief description of the course..." />
               </div>
 
               <div className="lib-form-group">
@@ -1074,12 +1080,12 @@ function LibraryManagementPage() {
               </div>
 
               <div className="lib-form-group">
-                <label className="lib-form-label">Instructor / Description</label>
-                <input
-                  className="lib-form-input"
-                  type="text"
-                  value={editCourseForm.instructor}
-                  onChange={e => setEditCourseForm(form => ({ ...form, instructor: e.target.value }))}
+                <label className="lib-form-label">Description</label>
+                <textarea
+                  className="lib-form-textarea"
+                  rows={8}
+                  value={editCourseForm.description}
+                  onChange={e => setEditCourseForm(form => ({ ...form, description: e.target.value }))}
                 />
               </div>
 
@@ -1219,9 +1225,9 @@ function LibraryManagementPage() {
                 <td className="lib-row-name">{row.name}</td>
                 <td className="lib-row-muted">{row.createdAt}</td>
                 <td className="lib-row-muted">{row.updatedAt || 'Not updated'}</td>
-                <td className="lib-row-muted">{row.courses} Courses</td>
+                <td className="lib-row-muted">{row.courses}</td>
                 <td className="lib-row-muted">{row.docs}</td>
-                <td className="lib-row-muted">{row.storage}</td>
+                <td className="lib-row-muted">{row.storage || '—'}</td>
                 <td style={{ textAlign: 'right' }}>
                   <div
                     className="lib-action-wrapper"

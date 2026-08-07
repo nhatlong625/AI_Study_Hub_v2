@@ -55,6 +55,20 @@ public class DatabaseSchemaGuard {
                     CREATE INDEX IX_DOCUMENT_deleted_at
                         ON dbo.DOCUMENT(deleted_at, user_id)
                 """);
+        run("DOCUMENT.file_hash", """
+                IF OBJECT_ID(N'dbo.DOCUMENT', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT', N'file_hash') IS NULL
+                    ALTER TABLE dbo.DOCUMENT ADD file_hash CHAR(64) NULL
+                """);
+        run("IX_DOCUMENT_file_hash", """
+                IF OBJECT_ID(N'dbo.DOCUMENT', N'U') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.DOCUMENT', N'file_hash') IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM sys.indexes
+                                   WHERE object_id = OBJECT_ID(N'dbo.DOCUMENT')
+                                     AND name = N'IX_DOCUMENT_file_hash')
+                    CREATE INDEX IX_DOCUMENT_file_hash
+                        ON dbo.DOCUMENT(file_hash, visibility_status)
+                """);
 
         run("DOCUMENT_SHARE.share_token", """
                 IF OBJECT_ID(N'dbo.DOCUMENT_SHARE', N'U') IS NOT NULL

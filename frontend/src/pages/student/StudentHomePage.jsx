@@ -3,6 +3,7 @@ import PageHeader from "../../components/common/PageHeader";
 import { useState, useMemo, useEffect } from "react";
 import { semesterApi } from "../../services/libraryApi";
 import MajorSelector from "../../components/student/MajorSelector";
+import SemesterSelector, { ALL_SEMESTERS } from "../../components/student/SemesterSelector";
 
 // ── Badge config per semester ────────────────────────────────
 const SEMESTER_BADGE = {
@@ -40,11 +41,11 @@ export default function StudentHomePage() {
   const navigate = useNavigate();
   const outletCtx = useOutletContext() || {};
   const selectedMajorId = outletCtx.selectedMajorId;
-  const [selectedSemester, setSelectedSemester] = useState("All Semesters");
+  const [selectedSemester, setSelectedSemester] = useState(ALL_SEMESTERS);
 
-  // semesters: [{ semesterName, semesterId, subjects: [{ subjectId, subjectName, subjectCode }] }]
+  // semesters: các kỳ đã gộp theo tên — [{ semesterName, subjects: [{ subjectId, subjectName, subjectCode }] }]
   const [semesters, setSemesters] = useState([]);
-  // publicDocsBySemester: { semesterId: { totalFiles, recentDoc } }
+  // statsMap: { semesterName: { totalFiles, recentDoc } }
   const [statsMap, setStatsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -56,14 +57,35 @@ export default function StudentHomePage() {
       const sortedSemesters = [...(Array.isArray(data) ? data : [])].sort(
         (a, b) => getSemesterNumber(a) - getSemesterNumber(b),
       );
-      const nextStatsMap = {};
+      // Mỗi ngành có bản ghi học kỳ riêng, nên "Semester 1" tồn tại một lần cho
+      // mỗi ngành. Ở chế độ All Majors mà đổ thẳng ra thì bảng hiện 7 dòng giống
+      // hệt nhau, không phân biệt được. Gộp lại theo TÊN kỳ — đúng với cách bộ lọc
+      // Semester bên cạnh vẫn hiểu về học kỳ.
+      const groups = [];
+      const groupByName = new Map();
 
       sortedSemesters.forEach((sem) => {
-        const subjects = Array.isArray(sem.subjects) ? sem.subjects : [];
+        let group = groupByName.get(sem.semesterName);
+        if (!group) {
+          group = { semesterName: sem.semesterName, subjects: [], seenSubjectIds: new Set() };
+          groupByName.set(sem.semesterName, group);
+          groups.push(group);
+        }
+        // Nhiều môn đại cương dùng chung tới 6 ngành. Không khử trùng thì môn đó
+        // hiện 6 lần trong cùng một dòng và cột Files cộng file của nó 6 lượt.
+        (Array.isArray(sem.subjects) ? sem.subjects : []).forEach((sub) => {
+          if (group.seenSubjectIds.has(sub.subjectId)) return;
+          group.seenSubjectIds.add(sub.subjectId);
+          group.subjects.push(sub);
+        });
+      });
+
+      const nextStatsMap = {};
+      groups.forEach((group) => {
         let totalFiles = 0;
         let recentDoc = null;
 
-        subjects.forEach((sub) => {
+        group.subjects.forEach((sub) => {
           totalFiles += Number(sub.documentCount || 0);
           if (!sub.recentDocId) return;
 
@@ -85,10 +107,10 @@ export default function StudentHomePage() {
           }
         });
 
-        nextStatsMap[sem.semesterId] = { totalFiles, recentDoc };
+        nextStatsMap[group.semesterName] = { totalFiles, recentDoc };
       });
 
-      setSemesters(sortedSemesters);
+      setSemesters(groups);
       setStatsMap(nextStatsMap);
       setLoading(false);
     }).catch((err) => {
@@ -101,18 +123,32 @@ export default function StudentHomePage() {
     });
   }, [selectedMajorId]);
 
-  const filtered = useMemo(() => {
-    const visibleSemesters = selectedSemester === "All Semesters"
-      ? semesters
-      : semesters.filter((s) => s.semesterName === selectedSemester);
+  // Không cần lọc Semester 0 ở đây nữa: nó đã là học kỳ của ngành "Preparation"
+  // nên dữ liệu tự cho ra đúng hành vi — All Majors thì thấy, lọc một chuyên ngành
+  // thì không, lọc Preparation thì chỉ còn nó. Lọc thêm ở đây sẽ làm ngành
+  // Preparation ra bảng trống.
+  const availableSemesters = useMemo(
+    () => [...semesters].sort((a, b) => getSemesterNumber(a) - getSemesterNumber(b)),
+    [semesters],
+  );
 
-    return [...visibleSemesters].sort(
-      (a, b) => getSemesterNumber(a) - getSemesterNumber(b),
-    );
-  }, [selectedSemester, semesters]);
+  // Đang chọn Semester 0 rồi mới chuyển sang lọc ngành thì kỳ đó biến mất, bộ lọc
+  // treo lại một giá trị không còn tồn tại và bảng trống trơn dù ngành có đầy môn.
+  useEffect(() => {
+    // availableSemesters rỗng nghĩa là đang tải dở, chưa đủ căn cứ để bỏ lựa chọn.
+    if (selectedSemester === ALL_SEMESTERS || availableSemesters.length === 0) return;
+    if (!availableSemesters.some((s) => s.semesterName === selectedSemester)) {
+      setSelectedSemester(ALL_SEMESTERS);
+    }
+  }, [availableSemesters, selectedSemester]);
+
+  const filtered = useMemo(() => {
+    if (selectedSemester === ALL_SEMESTERS) return availableSemesters;
+    return availableSemesters.filter((s) => s.semesterName === selectedSemester);
+  }, [selectedSemester, availableSemesters]);
 
   return (
-    <div className="p-7 bg-gray-50 min-h-screen">
+    <div className="p-7 bg-gray-50">
       <PageHeader
         title="Home"
         description="Browse all courses organized by semester"
@@ -124,25 +160,11 @@ export default function StudentHomePage() {
               selectedMajorId={selectedMajorId}
               onSelectMajor={(majorId) => outletCtx.setSelectedMajorId?.(majorId)}
             />
-            <div className="relative">
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 outline-none cursor-pointer focus:border-indigo-400 transition-all"
-              >
-                <option>All Semesters</option>
-                {semesters.map((s) => (
-                  <option key={s.semesterId}>{s.semesterName}</option>
-                ))}
-              </select>
-              <svg
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                width="12" height="12" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
+            <SemesterSelector
+              selectedSemester={selectedSemester}
+              onSelectSemester={setSelectedSemester}
+              semesters={availableSemesters}
+            />
           </div>
         }
       />
@@ -190,7 +212,7 @@ export default function StudentHomePage() {
             </svg>
             <p className="text-sm font-medium">No courses found</p>
             <button
-              onClick={() => setSelectedSemester("All Semesters")}
+              onClick={() => setSelectedSemester(ALL_SEMESTERS)}
               className="mt-3 text-xs text-indigo-600 hover:underline"
             >
               Clear filters
@@ -202,12 +224,12 @@ export default function StudentHomePage() {
               bg: "bg-gray-100", text: "text-gray-600",
               id: "S" + i,
             };
-            const stats = statsMap[sem.semesterId];
+            const stats = statsMap[sem.semesterName];
             const subjects = sem.subjects ?? [];
 
             return (
               <div
-                key={sem.semesterId}
+                key={sem.semesterName}
                 className={
                   "grid grid-cols-[1fr_130px_130px_350px] px-5 py-5 items-center hover:bg-gray-50 transition-colors" +
                   (i < filtered.length - 1 ? " border-b border-gray-200" : "")

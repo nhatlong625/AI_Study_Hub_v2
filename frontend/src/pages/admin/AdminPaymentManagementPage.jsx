@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { adminService } from '../../services/adminService';
 
+// BASIC là gói mặc định của mọi tài khoản nên chiếm phần lớn danh sách. Thiếu nó ở
+// đây thì nhãn rơi về {} và hiện ra không nền, trông như dữ liệu lỗi chứ không phải
+// một gói hợp lệ. Xám trung tính để nó không tranh chú ý với hai gói trả phí.
 const PLAN_CFG = {
+  BASIC: { bg: '#f3f4f6', color: '#374151' },
   PRO:  { bg: '#ede9fe', color: '#7c3aed' },
   PLUS: { bg: '#dbeafe', color: '#1d4ed8' },
 };
@@ -69,6 +73,7 @@ function PaymentManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState('');
   const [error, setError] = useState('');
+  const [planFilter, setPlanFilter] = useState('ALL');
 
   const [plusMonthly,         setPlusMonthly]         = useState('999');
   const [plusMonthlyDiscount, setPlusMonthlyDiscount] = useState('0');
@@ -158,6 +163,15 @@ function PaymentManagementPage() {
     style: 'currency', currency: 'VND', maximumFractionDigits: 0,
   }).format(amount || 0);
 
+  // Chỉ dựng nút lọc cho những gói thật sự có mặt trong danh sách: một nút lọc luôn
+  // trả về rỗng thì chỉ tổ mời người dùng bấm vào chỗ không có gì.
+  const PLAN_ORDER = ['BASIC', 'PLUS', 'PRO'];
+  const planOptions = [...new Set(members.map(member => member.plan).filter(Boolean))]
+    .sort((a, b) => PLAN_ORDER.indexOf(a) - PLAN_ORDER.indexOf(b));
+  const filteredMembers = planFilter === 'ALL'
+    ? members
+    : members.filter(member => member.plan === planFilter);
+
   return (
     <div className="pm-page">
 
@@ -214,16 +228,37 @@ function PaymentManagementPage() {
           </button>
         </div>
 
+        <div className="pm-plan-filters" role="group" aria-label="Filter members by plan">
+          {['ALL', ...planOptions].map(plan => {
+            const count = plan === 'ALL'
+              ? members.length
+              : members.filter(member => member.plan === plan).length;
+            return (
+              <button
+                key={plan}
+                type="button"
+                className={`pm-filter-btn${planFilter === plan ? ' pm-filter-btn-active' : ''}`}
+                onClick={() => setPlanFilter(plan)}
+                aria-pressed={planFilter === plan}
+              >
+                {plan === 'ALL' ? 'All plans' : plan}
+                <span className="pm-filter-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {isLoading && <div className="dm-empty">Loading payments...</div>}
         {!isLoading && (
+        <div className="pm-table-wrap">
         <table className="pm-table">
           <thead>
             <tr>
-              <th>MEMBER</th><th>PLAN</th><th>STATUS</th><th>BILLING CYCLE</th><th>PAYMENT DATE</th>
+              <th>MEMBER</th><th>PLAN</th><th>STATUS</th><th>BILLING CYCLE</th><th>AMOUNT PAID</th><th>PAYMENT DATE</th>
             </tr>
           </thead>
           <tbody>
-            {members.map(m => {
+            {filteredMembers.map(m => {
               const pc = PLAN_CFG[m.plan] || {};
               return (
                 <tr key={m.id} className="pm-row">
@@ -245,12 +280,19 @@ function PaymentManagementPage() {
                     </span>
                   </td>
                   <td className="pm-cell-muted">{m.billing}</td>
+                  <td className="pm-amount-cell">{formatCurrency(m.amount)}</td>
                   <td className="pm-cell-muted">{m.paymentDate}</td>
                 </tr>
               );
             })}
+            {filteredMembers.length === 0 && (
+              <tr>
+                <td colSpan="6" className="pm-filter-empty">No members found for this plan.</td>
+              </tr>
+            )}
           </tbody>
         </table>
+        </div>
         )}
       </div>
     </div>

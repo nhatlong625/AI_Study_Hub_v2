@@ -26,6 +26,7 @@ import com.aistudyhub.repository.SemesterRepository;
 import com.aistudyhub.repository.SubjectRepository;
 import com.aistudyhub.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -50,6 +51,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.math.BigDecimal;
@@ -61,6 +63,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class DocumentService {
 
@@ -85,7 +88,6 @@ public class DocumentService {
     private final StorageSettingsService storageSettingsService;
     private final CloudflareR2StorageService cloudflareR2StorageService;
     private final WebClient pythonAiWebClient;
-    private final EmailService emailService;
     private final JdbcTemplate jdbcTemplate;
     private final PlanQuotaService planQuotaService;
     private final DocumentConversionService documentConversionService;
@@ -155,6 +157,7 @@ public class DocumentService {
         doc.setDocumentType(uploadPayload.documentType());
         doc.setDocumentSize((long) uploadPayload.bytes().length);
         doc.setDocumentUrl(publicUrl);
+        doc.setFileHash(sha256Hex(uploadPayload.bytes()));
         doc.setVisibilityStatus(visibilityStatus != null ? visibilityStatus : "PRIVATE");
         doc.setStatus("Active");
         doc.setSummaryStatus(isSummarizableType(uploadPayload.documentType()) ? SUMMARY_PENDING : SUMMARY_UNSUPPORTED);
@@ -375,6 +378,10 @@ public class DocumentService {
             if (LocalDateTime.now().isBefore(cooldownEnd)) {
                 throw new TooManyRequestsException("You need to wait 1 more hour before requesting to publish again.");
             }
+        }
+
+        if ("PENDING_REVIEW".equals(newStatus)) {
+            checkContentEligibleForPublishing(doc);
         }
 
         doc.setVisibilityStatus(newStatus);
@@ -711,8 +718,39 @@ public class DocumentService {
         documentShareRepository.save(share);
         User owner = userRepository.findById(ownerUserId).orElse(null);
         String ownerName = owner != null ? owner.getFullName() : "Someone";
-        try { emailService.sendShareNotificationEmail(recipient.getEmail(), recipient.getFullName(), ownerName, doc.getTitle(), request.getPermission()); } catch (Exception ignored) {}
+        notifyDocumentShared(recipient.getUserId(), ownerName, doc.getTitle(), request.getPermission());
         return toUserShareResponse(share, doc, owner, recipient);
+    }
+
+    /**
+     * Báo cho người nhận ngay tại chuông thông báo trên topbar.
+     *
+     * Trước đây chỗ này gửi email. Tài liệu chỉ mở được khi đã đăng nhập, nên bắt người
+     * dùng rời ứng dụng sang hộp thư để biết mình vừa được chia sẻ là đi đường vòng —
+     * chưa kể email dễ rơi vào spam và không hề rẻ.
+     *
+     * Nuốt lỗi có chủ đích: chia sẻ đã lưu thành công rồi, hỏng phần báo tin thì không
+     * đáng để cuộn ngược giao dịch và báo người dùng là chia sẻ thất bại.
+     */
+    private void notifyDocumentShared(Integer recipientUserId, String ownerName, String documentTitle, String permission) {
+        try {
+            String access = "EDIT".equalsIgnoreCase(permission) ? "edit" : "view";
+            Integer announcementId = jdbcTemplate.queryForObject("""
+                INSERT INTO dbo.ANNOUNCEMENT (user_id, title, content, type, created_at)
+                OUTPUT INSERTED.announcement_id
+                VALUES (?, ?, ?, 'document', GETDATE())
+                """, Integer.class,
+                recipientUserId,
+                "Document shared with you",
+                ownerName + " shared \"" + documentTitle + "\" with you. You have " + access + " access.");
+
+            jdbcTemplate.update("""
+                INSERT INTO dbo.USER_ANNOUNCEMENT (user_id, announcement_id, is_read, read_at)
+                VALUES (?, ?, 0, NULL)
+                """, recipientUserId, announcementId);
+        } catch (Exception e) {
+            log.warn("Could not create share notification for user {}: {}", recipientUserId, e.getMessage());
+        }
     }
 
     public List<UserShareResponse> getSharedWithMe(Integer userId) {
@@ -896,7 +934,7 @@ public class DocumentService {
                 DELETE FROM dbo.CHAT_MESSAGE WHERE session_id IN (SELECT session_id FROM dbo.CHAT_SESSION WHERE document_id = @documentId);
                 DELETE FROM dbo.CHAT_SESSION WHERE document_id = @documentId;
                 DELETE FROM dbo.AI_USAGE_LOG WHERE document_id = @documentId;
-                DELETE FROM dbo.AI_SUGGESTION WHERE document_id = @documentId;
+                IF OBJECT_ID('dbo.AI_SUGGESTION', 'U') IS NOT NULL DELETE FROM dbo.AI_SUGGESTION WHERE document_id = @documentId;
                 DELETE FROM dbo.AI_SUMMARY WHERE document_id = @documentId;
                 DELETE FROM dbo.AI_QUESTION WHERE question_id IN (SELECT id FROM @QuestionIds);
                 DELETE FROM dbo.DOCUMENT_SHARE WHERE document_id = @documentId;
@@ -1327,5 +1365,59 @@ public class DocumentService {
     private String getExtension(String name) {
         if (name == null || !name.contains(".")) return "unknown";
         return name.substring(name.lastIndexOf('.') + 1).toLowerCase();
+    }
+
+    /**
+     * Chặn xin duyệt với nội dung đã công khai ở nơi khác, hoặc đã từng bị từ chối trong cùng môn.
+     * Cả hai luật đều dựa trên hash của nội dung file nên không tốn lượt gọi AI nào.
+     */
+    private void checkContentEligibleForPublishing(Document doc) {
+        String fileHash = resolveFileHash(doc);
+        if (fileHash == null) {
+            // Không đọc được nội dung file thì bỏ qua, để luồng duyệt thường xử lý
+            // thay vì chặn oan một tài liệu hợp lệ.
+            return;
+        }
+
+        if (documentRepository.existsPublishedDuplicate(fileHash, doc.getDocumentId())) {
+            throw new ConflictException("This file has already been published by someone else. You do not need to publish it again.");
+        }
+
+        if (documentRepository.existsRejectedContentInSubject(fileHash, doc.getSubjectId())) {
+            throw new ConflictException("This file was already reviewed and rejected for this subject. It cannot be submitted again.");
+        }
+    }
+
+    /**
+     * Hash của tài liệu. Tài liệu tải lên trước khi có cột file_hash thì tính lại một lần
+     * từ file trong storage rồi lưu, nên luật chặn áp dụng được cho cả dữ liệu cũ.
+     */
+    private String resolveFileHash(Document doc) {
+        if (doc.getFileHash() != null && !doc.getFileHash().isBlank()) {
+            return doc.getFileHash();
+        }
+        try {
+            String fileHash = sha256Hex(downloadFileBytes(doc));
+            doc.setFileHash(fileHash);
+            return fileHash;
+        } catch (Exception e) {
+            log.warn("Could not backfill file hash for document {}: {}", doc.getDocumentId(), e.getMessage());
+            return null;
+        }
+    }
+
+    private String sha256Hex(byte[] bytes) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                hex.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            // SHA-256 luôn có trong JDK; nếu thật sự thiếu thì coi như không có hash
+            // và bỏ qua luật chặn, thay vì làm hỏng cả luồng upload.
+            return null;
+        }
     }
 }

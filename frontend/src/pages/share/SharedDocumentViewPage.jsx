@@ -31,7 +31,7 @@ export default function SharedDocumentViewPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-400 text-sm">
+      <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
         Loading shared document...
       </div>
     );
@@ -39,7 +39,7 @@ export default function SharedDocumentViewPage() {
 
   if (error || !doc) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
+      <div className="flex flex-1 flex-col items-center justify-center text-center px-6">
         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
           <svg
             width="28"

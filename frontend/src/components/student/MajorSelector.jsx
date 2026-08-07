@@ -106,14 +106,27 @@ export default function MajorSelector({
             // -mx/-my triệt tiêu padding của nút để hộp của nó cao đúng bằng một
             // dòng chữ, nhờ vậy nhịp dòng khớp với email/Joined ở trên.
             ? "group inline-flex items-center gap-1.5 -mx-1.5 -my-0.5 px-1.5 py-0.5 rounded-lg text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none transition-colors cursor-pointer"
-            : "inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm border border-indigo-500/30 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 hover:border-indigo-500/50 focus:outline-none"
+            // Be ngang CO DINH. Nut loc la diem neo tren giao dien: no phai dung
+            // yen du dang chon gi. De no no theo ten nganh thi nut ben canh bi day
+            // chay ngang moi lan chon, con tro dang o dung cho bong sai cho.
+            // 210px: uu tien nut gon, chap nhan cat ten. Nut hoc ky ben canh dung
+            // chung con so nay de hai nut can nhau, ma nhan cua no ("All Semesters"
+            // la dai nhat) thi 210px la vua dep.
+            // Ten nganh dai hon ~18 ky tu se bi cat va dua vao tooltip. De vua han
+            // ten dai nhat ("Logistics & Supply Chain Management", 35 ky tu) can
+            // toi ~330px - qua rong cho mot nut loc, nen khong theo huong do.
+            : "inline-flex items-center justify-between gap-2.5 w-[210px] px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm border border-indigo-500/30 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 hover:border-indigo-500/50 focus:outline-none"
         }
-        title={isGhost ? "Change major" : "Select Major"}
+        title={isGhost ? "Change major" : label}
       >
-        <GraduationCapIcon
-          className={isGhost ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 text-indigo-600 shrink-0"}
-        />
-        <span className="truncate max-w-[200px]">{label}</span>
+        {/* Icon + nhan phai dinh nhau ben trai; justify-between (pill) chi day
+            chevron ve mep phai. Khong gom lai thi chu bi keo ra giua nut. */}
+        <span className={`inline-flex items-center min-w-0 ${isGhost ? "gap-1.5" : "gap-2.5"}`}>
+          <GraduationCapIcon
+            className={isGhost ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 text-indigo-600 shrink-0"}
+          />
+          <span className="truncate">{label}</span>
+        </span>
         <ChevronDownIcon
           className={
             (isGhost
@@ -126,7 +139,14 @@ export default function MajorSelector({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-2 w-64 origin-top-right rounded-2xl bg-white border border-indigo-100 shadow-2xl py-2 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className={
+            // Pill: panel rong bang dung nut va cach 6px cho lien mach. Ghost:
+            // nut chi la mot dong chu nen panel phai tu dat be ngang.
+            (isGhost ? "mt-2 w-64 " : "mt-1.5 w-full ") +
+            "absolute right-0 z-50 origin-top-right rounded-2xl bg-white border border-indigo-100 shadow-2xl py-2 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+          }
+        >
           <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
             <p className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5">
               <SparklesIcon className="w-3 h-3 text-indigo-600" />
@@ -149,7 +169,7 @@ export default function MajorSelector({
                     : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <span>All Majors (Browse Everything)</span>
+                <span>All Majors</span>
                 {!selectedMajorId && <CheckIcon className="w-3.5 h-3.5 text-indigo-600" />}
               </button>
             )}
