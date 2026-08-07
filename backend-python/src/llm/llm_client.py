@@ -143,14 +143,6 @@ class LlmService:
         except Exception as exc:
             return self._mock_answer_for_ai_error(str(exc), []), True
 
-    def generate(self, prompt: str) -> tuple[str, bool]:
-        """Sinh văn bản từ một prompt tự do, trả về (nội dung, có phải mock hay không).
-
-        Dùng cho các tính năng đưa thẳng prompt vào model mà không cần ngữ cảnh tài
-        liệu như answer(): tóm tắt tài liệu và sinh câu hỏi trắc nghiệm.
-        """
-        return self._generate(prompt)
-
     def test_connection(self) -> tuple[bool, str, str]:
         self._refresh_runtime_config()
         if self.provider == "mock":
