@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     llm_provider: str = "auto"
 
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-1.5-flash"
+    # gemini-1.5-flash da bi Google go khoi API (khong con trong ListModels), goi vao
+    # se 404. Chi dung ten co that trong ListModels.
+    gemini_model: str = "gemini-3.6-flash"
 
     deepseek_api_key: str = ""
     deepseek_model: str = "deepseek-v4-flash"

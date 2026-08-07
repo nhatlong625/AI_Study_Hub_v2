@@ -4,15 +4,21 @@
 
    Insert-only. Creates no tables and drops nothing: it fills
    MAJOR / SEMESTER / SUBJECT / SEMESTER_SUBJECT as they are
-   defined by AI_Study_Hub.sql + AI_Study_Hub_v2_upgrade.sql.
+   defined by the schema scripts.
 
-   Run order:  AI_Study_Hub.sql
-            -> AI_Study_Hub_v2_upgrade.sql
-            -> AI_Study_Hub_v3_shared_subjects.sql
-            -> this file
+   Run order — new clone only needs these two files:
+        1) AI_Study_Hub_full.sql   (schema: v1 + v2 + v3 merged)
+        2) this file
+
+   How to run:
+        sqlcmd -S localhost -E -I -f 65001 -i AI_Study_Hub_full.sql
+        sqlcmd -S localhost -E -I -f 65001 -i AI_Study_Hub_seed.sql
+
+        -I        enables QUOTED_IDENTIFIER (required: filtered indexes)
+        -f 65001  reads the file as UTF-8 so accents survive
 
    Idempotent: re-running inserts nothing new.
-   File is UTF-8; run with  sqlcmd -f 65001  to keep accents.
+   To undo: AI_Study_Hub_seed_rollback.sql
    ============================================================ */
 USE [AI_StudyHub];
 GO
@@ -648,6 +654,285 @@ GO
 DROP TABLE #MAJ;
 DROP TABLE #SUB;
 DROP TABLE #CUR;
+GO
+
+
+/* ============================================================
+   CHINH LY CHUONG TRINH HOC (chuyen tu AI_Study_Hub_v2_upgrade.sql)
+   ----------------------------------------------------------
+   Sau khi da do xong du lieu o tren, cac buoc duoi day chuan hoa lai:
+     1. Doi ten Preparation / Pre-Preparation thanh Semester 0
+     2. Moi nganh chi giu mot dong Semester 0
+     3. Bo cac mon ren luyen khoi Semester 0
+     4. Them nhom mon tieng Anh chuan bi + lien ket cho moi nganh
+     5. Tach Semester 0 thanh mot nganh rieng ten Preparation
+     6. Dien mo ta cho 7 chuyen nganh
+
+   Truoc day chung nam trong v2 - chay TRUOC file nay nen khong thay du lieu de
+   xu ly, im lang bo qua het. Dat o day de thu tu dung: schema -> du lieu ->
+   chinh ly du lieu.
+
+   Van idempotent: chay lai nhieu lan khong tao trung.
+   ============================================================ */
+
+
+-- Gop 'Preparation' va 'Pre-Preparation' thanh 'Semester 0'.
+-- Hai nganh IA va SE dang co CA HAI ky nay, doi ten suong se de lai hai dong
+-- trung ten trong cung mot nganh - dung cai loi ma trang Home vua sua xong.
+-- Nen doi ten truoc, roi gop cac dong trung lai lam mot.
+IF OBJECT_ID(N'dbo.SEMESTER', N'U') IS NOT NULL
+BEGIN
+    UPDATE dbo.SEMESTER
+    SET semester_name = N'Semester 0'
+    WHERE semester_name IN (N'Preparation', N'Pre-Preparation');
+    PRINT CONCAT(N'  [OK] Renamed ', @@ROWCOUNT, N' semester row(s) to Semester 0');
+END
+GO
+
+-- Moi nganh giu lai dung mot dong 'Semester 0' (dong co semester_id nho nhat),
+-- cac dong con lai duoc tro ve dong giu lai roi xoa di.
+IF OBJECT_ID(N'dbo.SEMESTER', N'U') IS NOT NULL
+BEGIN
+    DECLARE @merged INT = 0;
+
+    -- Dong duoc giu cho moi nganh
+    SELECT major_id, MIN(semester_id) AS keep_id
+    INTO #KEEP
+    FROM dbo.SEMESTER
+    WHERE semester_name = N'Semester 0' AND major_id IS NOT NULL
+    GROUP BY major_id
+    HAVING COUNT(*) > 1;
+
+    -- Cac dong thua se bi xoa
+    SELECT sem.semester_id AS dup_id, k.keep_id
+    INTO #DUP
+    FROM dbo.SEMESTER sem
+    JOIN #KEEP k ON k.major_id = sem.major_id
+    WHERE sem.semester_name = N'Semester 0' AND sem.semester_id <> k.keep_id;
+
+    IF EXISTS (SELECT 1 FROM #DUP)
+    BEGIN
+        -- Lien ket chinh
+        UPDATE sub SET sub.semester_id = d.keep_id
+        FROM dbo.SUBJECT sub JOIN #DUP d ON d.dup_id = sub.semester_id;
+
+        -- Lien ket phu: chen truoc roi xoa, tranh dung khoa chinh (semester_id, subject_id)
+        INSERT INTO dbo.SEMESTER_SUBJECT (semester_id, subject_id)
+        SELECT DISTINCT d.keep_id, ss.subject_id
+        FROM dbo.SEMESTER_SUBJECT ss
+        JOIN #DUP d ON d.dup_id = ss.semester_id
+        WHERE NOT EXISTS (SELECT 1 FROM dbo.SEMESTER_SUBJECT x
+                          WHERE x.semester_id = d.keep_id AND x.subject_id = ss.subject_id);
+
+        DELETE ss FROM dbo.SEMESTER_SUBJECT ss JOIN #DUP d ON d.dup_id = ss.semester_id;
+
+        -- Bang thu ba co khoa ngoai toi SEMESTER
+        IF OBJECT_ID(N'dbo.SUBJECT_REPORT', N'U') IS NOT NULL
+            UPDATE r SET r.semester_id = d.keep_id
+            FROM dbo.SUBJECT_REPORT r JOIN #DUP d ON d.dup_id = r.semester_id;
+
+        DELETE sem FROM dbo.SEMESTER sem JOIN #DUP d ON d.dup_id = sem.semester_id;
+        SET @merged = @@ROWCOUNT;
+    END
+
+    DROP TABLE #DUP;
+    DROP TABLE #KEEP;
+    PRINT CONCAT(N'  [OK] Merged ', @merged, N' duplicate Semester 0 row(s)');
+END
+GO
+
+-- Bo 4 mon ren luyen khoi Semester 0: VOV114/124/134 (Vovinam) va PHE_COM*1
+-- (Giao duc the chat 1). Ca 4 chi xuat hien o Semester 0 va khong o ky nao khac,
+-- nen xoa han thay vi go lien ket - cot SUBJECT.semester_id la NOT NULL, de lai
+-- se thanh ban ghi mo coi khong tro vao dau duoc.
+-- PHE_COM*2 va PHE_COM*3 (ky 1 va 2) giu nguyen.
+IF OBJECT_ID(N'dbo.SUBJECT', N'U') IS NOT NULL
+BEGIN
+    DECLARE @dropped INT = 0;
+
+    SELECT sub.subject_id
+    INTO #BO
+    FROM dbo.SUBJECT sub
+    WHERE sub.subject_code IN (N'VOV114', N'VOV124', N'VOV134', N'PHE_COM*1')
+      -- Chi xoa khi khong ai dang dung, de khong lam mat tai lieu that
+      AND NOT EXISTS (SELECT 1 FROM dbo.DOCUMENT d WHERE d.subject_id = sub.subject_id)
+      AND NOT EXISTS (SELECT 1 FROM dbo.USER_SUBJECT us WHERE us.subject_id = sub.subject_id);
+
+    DELETE ss FROM dbo.SEMESTER_SUBJECT ss JOIN #BO b ON b.subject_id = ss.subject_id;
+    DELETE sub FROM dbo.SUBJECT sub JOIN #BO b ON b.subject_id = sub.subject_id;
+    SET @dropped = @@ROWCOUNT;
+
+    DROP TABLE #BO;
+    PRINT CONCAT(N'  [OK] Removed ', @dropped, N' Semester 0 training subject(s)');
+
+    IF EXISTS (SELECT 1 FROM dbo.SUBJECT
+               WHERE subject_code IN (N'VOV114', N'VOV124', N'VOV134', N'PHE_COM*1'))
+        PRINT N'  [WARN] Some kept: they still have documents or enrolled students';
+END
+GO
+
+-- Them nhom mon tieng Anh chuan bi vao Semester 0 cua CA 7 nganh.
+-- Ten mon: tra duoc tu tai lieu FPTU cho ENT104/203/303/403 (bo Top Notch/Summit);
+-- cac ma con lai khong tim ra ten chinh thuc nen lay chinh ma lam ten, description
+-- de trong - sua sau trong Library Management thay vi doan bua.
+-- ENT503 va TRS501 da co san (home o SE), chi can bo sung lien ket cho cac nganh khac.
+IF OBJECT_ID(N'dbo.SUBJECT', N'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM dbo.SEMESTER WHERE semester_name = N'Semester 0')
+BEGIN
+    DECLARE @MON TABLE (subject_code NVARCHAR(50), subject_name NVARCHAR(255));
+    INSERT INTO @MON (subject_code, subject_name) VALUES
+        (N'ENT103', N'ENT103'),
+        (N'ENT104', N'Top Notch 1'),
+        (N'ENT203', N'Top Notch 2'),
+        (N'ENT303', N'Top Notch 3'),
+        (N'ENT304', N'ENT304'),
+        (N'ENT403', N'Summit 1'),
+        (N'ENT404', N'ENT404'),
+        (N'ENT503', N'English 6 (Summit 2)'),
+        (N'EPT202', N'EPT202'),
+        (N'TRS401', N'TRS401'),
+        (N'TRS501', N'English 5 (University success)'),
+        (N'TRS601', N'TRS601');
+
+    -- Nganh "nha" cua mon moi: Semester 0 cua SE, dung cho ENT503/TRS501 san co.
+    DECLARE @home INT = (SELECT MIN(sem.semester_id) FROM dbo.SEMESTER sem
+                         JOIN dbo.MAJOR m ON m.major_id = sem.major_id
+                         WHERE sem.semester_name = N'Semester 0' AND m.major_code = N'SE');
+    IF @home IS NULL
+        SET @home = (SELECT MIN(semester_id) FROM dbo.SEMESTER WHERE semester_name = N'Semester 0');
+
+    INSERT INTO dbo.SUBJECT (semester_id, subject_name, subject_code, created_at)
+    SELECT @home, x.subject_name, x.subject_code, GETDATE()
+    FROM @MON x
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.SUBJECT s WHERE s.subject_code = x.subject_code);
+    PRINT CONCAT(N'  [OK] Created ', @@ROWCOUNT, N' preparation English subject(s)');
+
+    -- Lien ket phu toi Semester 0 cua cac nganh con lai. Bo qua chinh ky "nha" vi
+    -- lien ket chinh da nam o SUBJECT.semester_id.
+    INSERT INTO dbo.SEMESTER_SUBJECT (semester_id, subject_id)
+    SELECT sem.semester_id, sub.subject_id
+    FROM dbo.SEMESTER sem
+    JOIN @MON x ON 1 = 1
+    JOIN dbo.SUBJECT sub ON sub.subject_code = x.subject_code
+    WHERE sem.semester_name = N'Semester 0'
+      AND sem.semester_id <> sub.semester_id
+      AND NOT EXISTS (SELECT 1 FROM dbo.SEMESTER_SUBJECT ss
+                      WHERE ss.semester_id = sem.semester_id AND ss.subject_id = sub.subject_id);
+    PRINT CONCAT(N'  [OK] Linked ', @@ROWCOUNT, N' subject/semester pair(s) across majors');
+END
+GO
+
+-- Tach Semester 0 ra thanh mot "nganh" rieng ten Preparation.
+-- Ly do: o truong nay Semester 0 la ky chuan bi chung, hoc va pass het moi duoc
+-- chon chuyen nganh. Truoc day no duoc luu thanh 7 dong (moi chuyen nganh mot dong)
+-- voi noi dung gan nhu y het - vua ton cong sua 7 lan vua da bi lech du lieu.
+-- Gom ve mot dong duy nhat thuoc nganh Preparation thi hanh vi mong muon co ngay
+-- tu du lieu, khong can code dac biet:
+--   All Majors     -> thay Semester 0 (vi no thuoc mot nganh)
+--   loc SE/AI/...   -> khong thay, vi Semester 0 khong thuoc cac nganh do
+--   loc Preparation -> chi thay Semester 0
+IF OBJECT_ID(N'dbo.MAJOR', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.SEMESTER', N'U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM dbo.MAJOR WHERE major_name = N'Preparation')
+    BEGIN
+        -- Mo ta nay hien thang trong man onboarding nen phai la tieng Anh.
+        INSERT INTO dbo.MAJOR (major_name, description, created_at)
+        VALUES (N'Preparation',
+                N'Shared preparation semester. Complete these courses before choosing a specialization.',
+                GETDATE());
+        IF COL_LENGTH(N'dbo.MAJOR', N'major_code') IS NOT NULL
+            EXEC sp_executesql N'UPDATE dbo.MAJOR SET major_code = N''PREP''
+                                 WHERE major_name = N''Preparation'' AND major_code IS NULL';
+        PRINT N'  [OK] Created major Preparation';
+    END
+    ELSE
+        PRINT N'  [SKIP] Major Preparation already exists';
+
+    -- Ban migration dau tien dat mo ta bang tieng Viet khong dau; sua lai cho khop
+    -- quy uoc chuoi hien thi chi dung tieng Anh.
+    UPDATE dbo.MAJOR
+    SET description = N'Shared preparation semester. Complete these courses before choosing a specialization.'
+    WHERE major_name = N'Preparation'
+      AND description = N'Ky chuan bi chung cho moi sinh vien. Hoan thanh cac mon o day roi moi chon chuyen nganh.';
+
+    DECLARE @prepMajor INT = (SELECT MIN(major_id) FROM dbo.MAJOR WHERE major_name = N'Preparation');
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.SEMESTER
+                   WHERE semester_name = N'Semester 0' AND major_id = @prepMajor)
+    BEGIN
+        INSERT INTO dbo.SEMESTER (semester_name, major_id, created_at)
+        VALUES (N'Semester 0', @prepMajor, GETDATE());
+        PRINT N'  [OK] Created semester Semester 0 under Preparation';
+    END
+
+    DECLARE @prepSem INT = (SELECT MIN(semester_id) FROM dbo.SEMESTER
+                            WHERE semester_name = N'Semester 0' AND major_id = @prepMajor);
+
+    -- Cac dong Semester 0 cu, tuc cua 7 chuyen nganh
+    SELECT semester_id INTO #CU
+    FROM dbo.SEMESTER
+    WHERE semester_name = N'Semester 0' AND semester_id <> @prepSem;
+
+    IF EXISTS (SELECT 1 FROM #CU)
+    BEGIN
+        -- Don mon ve ky moi. Mon nao trung ma da co roi thi bo qua o buoc duoi.
+        UPDATE sub SET sub.semester_id = @prepSem
+        FROM dbo.SUBJECT sub JOIN #CU c ON c.semester_id = sub.semester_id;
+
+        -- Lien ket phu toi cac dong cu khong con y nghia: tat ca mon deu da nam
+        -- trong dung mot ky roi.
+        DELETE ss FROM dbo.SEMESTER_SUBJECT ss JOIN #CU c ON c.semester_id = ss.semester_id;
+        DELETE ss FROM dbo.SEMESTER_SUBJECT ss WHERE ss.semester_id = @prepSem;
+
+        IF OBJECT_ID(N'dbo.SUBJECT_REPORT', N'U') IS NOT NULL
+        BEGIN
+            UPDATE r SET r.semester_id = @prepSem
+            FROM dbo.SUBJECT_REPORT r JOIN #CU c ON c.semester_id = r.semester_id;
+            EXEC sp_executesql N'UPDATE r SET r.major_id = @m
+                                 FROM dbo.SUBJECT_REPORT r WHERE r.semester_id = @s',
+                               N'@m INT, @s INT', @m = @prepMajor, @s = @prepSem;
+        END
+
+        DELETE sem FROM dbo.SEMESTER sem JOIN #CU c ON c.semester_id = sem.semester_id;
+        PRINT CONCAT(N'  [OK] Merged ', @@ROWCOUNT, N' per-major Semester 0 row(s) into Preparation');
+    END
+    ELSE
+        PRINT N'  [SKIP] No per-major Semester 0 rows left to merge';
+
+    DROP TABLE #CU;
+END
+GO
+
+-- Mo ta cho 7 chuyen nganh. Man onboarding hien mo ta ngay duoi ten nganh, ma
+-- truoc do chi Preparation co - danh sach nhin lech han, va sinh vien phai chon
+-- nganh chi bang cai ten. Van tieng Anh vi day la chuoi hien thi.
+-- Chi ghi khi dang trong: admin sua lai qua Library Management thi lan chay sau
+-- khong de len.
+IF OBJECT_ID(N'dbo.MAJOR', N'U') IS NOT NULL
+BEGIN
+    DECLARE @MOTA TABLE (major_name NVARCHAR(255), description NVARCHAR(1000));
+    INSERT INTO @MOTA (major_name, description) VALUES
+        (N'Artificial Intelligence',
+         N'Machine learning, data processing and intelligent systems, built on a computing and mathematics foundation.'),
+        (N'Software Engineering',
+         N'Software development from programming foundations through web, mobile and large-scale systems.'),
+        (N'Information Assurance',
+         N'Information security, digital forensics, malware analysis and risk management for information systems.'),
+        (N'Digital Marketing',
+         N'Digital marketing strategy, consumer behaviour and data-driven campaigns across online channels.'),
+        (N'Finance',
+         N'Corporate finance, accounting, banking and investment within a business administration program.'),
+        (N'Logistics & Supply Chain Management',
+         N'Global logistics, supply chain operations, freight and international trade management.'),
+        (N'English Language',
+         N'English linguistics, translation and interpreting, and professional communication in international settings.');
+
+    UPDATE m SET m.description = x.description, m.updated_at = GETDATE()
+    FROM dbo.MAJOR m JOIN @MOTA x ON x.major_name = m.major_name
+    WHERE m.description IS NULL OR LTRIM(RTRIM(m.description)) = N'';
+    PRINT CONCAT(N'  [OK] Filled description for ', @@ROWCOUNT, N' major(s)');
+END
 GO
 
 PRINT N'Curriculum seed done.';

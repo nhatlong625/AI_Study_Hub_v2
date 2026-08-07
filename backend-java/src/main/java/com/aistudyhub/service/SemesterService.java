@@ -40,16 +40,24 @@ public class SemesterService {
         return result;
     }
 
-    /** Merge linked subjects vào subjectsBySemester map */
+    /**
+     * Merge linked subjects vào subjectsBySemester map.
+     *
+     * Chống trùng phải xét trong phạm vi TỪNG học kỳ, không phải toàn hệ thống. SUBJECT
+     * chỉ mang được một semester_id nên môn dùng chung (CSI106, PRF192, MLN111...) được
+     * gán cho học kỳ của một ngành, rồi nối sang các ngành khác qua SEMESTER_SUBJECT.
+     * Lọc theo tập toàn cục sẽ loại đúng những môn đó — vì chúng "đã tồn tại" ở ngành
+     * chủ — khiến chương trình học của ngành khác trống gần hết.
+     */
     private void mergeLinkedSubjects(Map<Integer, List<Subject>> subjectsBySemester) {
         Map<Integer, List<Integer>> linkedIds = loadLinkedSubjectIds();
         Map<Integer, Subject> allSubjects = subjectRepository.findAll().stream()
                 .collect(Collectors.toMap(Subject::getSubjectId, s -> s, (a, b) -> a));
-        Set<Integer> existingIds = subjectsBySemester.values().stream()
-                .flatMap(List::stream).map(Subject::getSubjectId).collect(Collectors.toSet());
         linkedIds.forEach((semId, subIds) -> {
             List<Subject> existing = subjectsBySemester.computeIfAbsent(semId, k -> new ArrayList<>());
-            subIds.stream().filter(id -> !existingIds.contains(id))
+            Set<Integer> idsInThisSemester = existing.stream()
+                    .map(Subject::getSubjectId).collect(Collectors.toSet());
+            subIds.stream().filter(id -> !idsInThisSemester.contains(id))
                   .map(allSubjects::get).filter(s -> s != null)
                   .forEach(existing::add);
         });

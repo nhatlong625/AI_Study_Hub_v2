@@ -49,7 +49,24 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
                    COALESCE(SUM(d.document_size), 0) AS totalStorageBytes,
                    MAX(d.created_at) AS latestDocumentAt
             FROM SUBJECT s
-            JOIN SEMESTER sem ON sem.semester_id = s.semester_id
+            -- Môn dùng chung (CSI106, PRF192, MLN111...) chỉ mang được một semester_id
+            -- nên nó thuộc học kỳ của ngành chủ, rồi nối sang ngành khác qua
+            -- SEMESTER_SUBJECT. Bám theo s.semester_id thôi thì sinh viên IA thêm CSI106
+            -- sẽ thấy nó nằm dưới học kỳ của ngành chủ, kèm nhãn ngành sai.
+            -- CROSS APPLY chọn đúng MỘT học kỳ, ưu tiên học kỳ thuộc ngành của người
+            -- dùng; lấy cả tập rồi lọc sau sẽ nhân dòng lên theo số ngành có liên kết.
+            CROSS APPLY (
+                SELECT TOP 1 sm.semester_id, sm.semester_name, sm.major_id
+                FROM SEMESTER sm
+                WHERE sm.semester_id = s.semester_id
+                   OR sm.semester_id IN (
+                        SELECT ss.semester_id FROM SEMESTER_SUBJECT ss
+                        WHERE ss.subject_id = s.subject_id)
+                ORDER BY CASE WHEN sm.major_id =
+                                   (SELECT major_id FROM [USER] WHERE user_id = :userId)
+                              THEN 0 ELSE 1 END,
+                         sm.semester_id
+            ) sem
             -- LEFT JOIN: học kỳ dùng chung cho mọi ngành có major_id NULL.
             LEFT JOIN MAJOR m ON m.major_id = sem.major_id
             LEFT JOIN USER_SUBJECT us ON us.subject_id = s.subject_id
@@ -147,14 +164,14 @@ public interface DocumentRepository extends JpaRepository<Document, Integer> {
      * cùng một file có thể không hợp môn này nhưng hợp môn khác.
      */
     @Query(value = """
-            SELECT CASE WHEN EXISTS (
+            SELECT CAST(CASE WHEN EXISTS (
                 SELECT 1
                 FROM DOCUMENT d
                 JOIN PUBLIC_REVIEW_LOG l ON l.document_id = d.document_id
                 WHERE d.file_hash = :fileHash
                   AND d.subject_id = :subjectId
                   AND l.review_status IN ('REJECTED', 'ADMIN_REJECTED')
-            ) THEN 1 ELSE 0 END
+            ) THEN 1 ELSE 0 END AS BIT)
             """, nativeQuery = true)
     boolean existsRejectedContentInSubject(@Param("fileHash") String fileHash,
                                            @Param("subjectId") Integer subjectId);

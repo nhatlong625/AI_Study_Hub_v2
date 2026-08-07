@@ -79,22 +79,38 @@ function FormattedAiReasoning({ reasoning }) {
 
   const text = String(reasoning).replace(/\r\n/g, '\n');
 
+  // (?!\d) sau nhóm điểm và `*` (thay vì `+`) ở nhóm ghi chú là hai điều kiện đi kèm
+  // nhau. Định dạng mới kết thúc dòng ngay sau điểm ("• Subject Topic Match: 38/40"),
+  // mà ký tự xuống dòng lại bị loại khỏi nhóm ghi chú — nhóm bắt buộc có ký tự sẽ
+  // khiến regex lùi lại, cắt điểm thành "38/4" rồi lấy "0" làm ghi chú. Chỉ nới nhóm
+  // ghi chú thành `*` thì vẫn lùi được, nên cần (?!\d) chốt trọn con số.
+  // Phần bắt điểm và ghi chú dùng chung cho cả bốn tiêu chí:
+  //  - (?!\d) chốt trọn con số. Thiếu nó, khi ghi chú rỗng regex sẽ lùi lại và cắt
+  //    "38/40" thành "38/4" rồi lấy "0" làm ghi chú.
+  //  - [ \t]* thay cho \s*: \s nuốt cả dấu xuống dòng, đẩy câu ghi chú ở dòng dưới
+  //    vào nhánh "cùng dòng" và bị cắt cụt tại đó.
+  //  - Nhánh cùng dòng dừng bằng lookahead ở đúng mẫu đánh số ("2." kèm khoảng
+  //    trắng) thay vì loại trừ chữ số trần. Loại trừ chữ số làm ghi chú đứt ngang
+  //    mỗi khi có mã môn như "PRO192".
+  const SCORE = String.raw`(?:\(\s*(\d+\/\d+)(?!\d)\s*\)|:\s*(\d+\/\d+)(?!\d))[ \t]*:?[ \t]*`;
+  const NOTE = String.raw`((?:(?![234]\.\s|•|Total Relevance|Explanation:)[^\n\r])*(?:\n(?!\s*•|\s*[234]\.\s|Total|\s*Explanation:)[^\n\r]+)*)`;
+
   const criteriaDefs = [
     {
       key: 'Subject Topic Match',
-      regex: /(?:1\.\s*)?Subject Topic Match\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^234•\n\r]+(?:\n(?![234]\.|\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+      regex: new RegExp(String.raw`(?:1\.\s*)?Subject Topic Match\s*` + SCORE + NOTE, 'i'),
     },
     {
       key: 'Terminology & Concept Density',
-      regex: /(?:2\.\s*)?(?:Terminology & Concept Density|Terminology Density)\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^34•\n\r]+(?:\n(?![34]\.|\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+      regex: new RegExp(String.raw`(?:2\.\s*)?(?:Terminology & Concept Density|Terminology Density)\s*` + SCORE + NOTE, 'i'),
     },
     {
       key: 'Educational Resource Quality',
-      regex: /(?:3\.\s*)?Educational Resource Quality\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^4•\n\r]+(?:\n(?!4\.|\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+      regex: new RegExp(String.raw`(?:3\.\s*)?Educational Resource Quality\s*` + SCORE + NOTE, 'i'),
     },
     {
       key: 'Content Completeness & Structure',
-      regex: /(?:4\.\s*)?Content Completeness & Structure\s*(?:\(\s*(\d+\/\d+)\s*\)|:\s*(\d+\/\d+))\s*:?\s*([^•\n\r]+(?:\n(?!\s*•|Total|\s*Explanation:)[^\n\r]+)*)/i,
+      regex: new RegExp(String.raw`(?:4\.\s*)?Content Completeness & Structure\s*` + SCORE + NOTE, 'i'),
     },
   ];
 
@@ -117,15 +133,18 @@ function FormattedAiReasoning({ reasoning }) {
 
   let mainExplanation = text;
   const firstCriterionIndex = text.search(/(?:1\.\s*)?Subject Topic Match|Rubric breakdown:|EXPLICIT SCORING RUBRIC/i);
-  if (firstCriterionIndex > 0) {
-    mainExplanation = text.substring(0, firstCriterionIndex).trim();
-  } else if (firstCriterionIndex === 0) {
+  const prefix = firstCriterionIndex > 0 ? text.substring(0, firstCriterionIndex).trim() : '';
+  // Khi phần lý do mở đầu thẳng bằng "• Subject Topic Match", đoạn đứng trước chỉ còn
+  // đúng dấu đầu dòng. Trước đây nó được coi là tóm tắt nên hiện ra một dấu • trơ trọi;
+  // lấy đoạn sau "Explanation:" mới là bản tóm tắt thật.
+  const prefixIsMeaningful = prefix.replace(/^[•\-*\s]+/, '').length > 0;
+  if (firstCriterionIndex > 0 && prefixIsMeaningful) {
+    mainExplanation = prefix;
+  } else if (firstCriterionIndex >= 0) {
     const expIdx = text.search(/Explanation:/i);
-    if (expIdx > 0) {
-      mainExplanation = text.substring(expIdx + 'Explanation:'.length).trim();
-    } else {
-      mainExplanation = '';
-    }
+    mainExplanation = expIdx > 0
+      ? text.substring(expIdx + 'Explanation:'.length).trim()
+      : '';
   }
 
   if (extracted.length === 0) {

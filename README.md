@@ -1,4 +1,4 @@
-﻿# AI Study Hub
+# AI Study Hub
 
 AI Study Hub là hệ thống quản lý tài liệu học tập cho sinh viên. Project gồm 3 phần chính:
 
@@ -29,7 +29,8 @@ AI_Study_Hub/
 ├── backend-java/                         # Spring Boot API, port 8080
 ├── backend-python/                       # FastAPI AI service, port 8000
 ├── frontend/                             # React + Vite, port 5173
-├── AI_StudyHub_full_schema_current.sql   # SQL Server schema + dữ liệu mẫu
+├── AI_Study_Hub_full.sql                 # SQL Server schema (gộp v1 + v2 + v3)
+├── AI_Study_Hub_seed.sql                 # dữ liệu chương trình học 7 ngành
 ├── package.json                          # script root nếu cần
 └── README.md
 ```
@@ -72,11 +73,18 @@ Maven sẽ tự tải thư viện Java theo `backend-java/pom.xml`, npm tải th
 
 1. Mở SQL Server Management Studio.
 2. Tạo database tên `AI_StudyHub`.
-3. Mở và chạy file:
+3. Chạy hai file SQL, đúng thứ tự:
 
-```text
-AI_StudyHub_full_schema_current.sql
+```bash
+sqlcmd -S localhost -E -I -f 65001 -i AI_Study_Hub_full.sql
+sqlcmd -S localhost -E -I -f 65001 -i AI_Study_Hub_seed.sql
 ```
+
+`-I` bật QUOTED_IDENTIFIER (bắt buộc, do có index có điều kiện) và `-f 65001` đọc
+file dạng UTF-8 để giữ dấu tiếng Việt. Chạy bằng SSMS thì mở lần lượt hai file và
+Execute — SSMS đã bật sẵn hai tuỳ chọn này.
+
+Cả hai file đều idempotent: chạy lại nhiều lần không tạo trùng, không mất dữ liệu.
 
 4. Kiểm tra SQL Server đang bật TCP/IP port `1433`.
 
@@ -202,7 +210,7 @@ OPENAI_API_KEY=your-openai-key
 OPENAI_MODEL=gpt-4o-mini
 
 GEMINI_API_KEY=your-gemini-key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 ```
 
 Gợi ý:
@@ -437,7 +445,8 @@ Nên gửi:
 backend-java/
 backend-python/
 frontend/
-AI_StudyHub_full_schema_current.sql
+AI_Study_Hub_full.sql
+AI_Study_Hub_seed.sql
 README.md
 package.json
 package-lock.json nếu cần

@@ -241,9 +241,12 @@ class LlmService:
         candidates = []
         for model in (
             self.gemini_model_name,
+            # Danh sach du phong khi model nguoi dung chon that bai. Tat ca deu phai
+            # co that trong ListModels - "gemini-3.1-pro" tung nam o day nhung khong
+            # ton tai (ten that la "gemini-3.1-pro-preview") nen luon tra 404.
+            "gemini-3.6-flash",
             "gemini-3.5-flash",
-            "gemini-3.1-pro",
-            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash",
         ):
             if model and model not in candidates:
                 candidates.append(model)
@@ -460,11 +463,19 @@ class LlmService:
             "4. Content Completeness & Structure (0-10 pts): Is the text legible, clear, and well-structured?\n\n"
             "Instructions:\n"
             "- Calculate total relevance_score (sum of 4 criteria above, range 0 to 100).\n"
-            "- Format `ai_reasoning` EXACTLY like this with each score on its own line, followed by detailed explanation paragraph:\n"
+            # Mỗi tiêu chí phải kèm một câu lý giải trên DÒNG RIÊNG ngay dưới nó: giao
+            # diện Admin hiện ghi chú đó dưới từng thẻ điểm. Đặt cùng dòng với điểm sẽ
+            # bị bộ phân tích cắt cụt khi câu có chứa chữ số.
+            "- Format `ai_reasoning` EXACTLY like this — each criterion on its own line,\n"
+            "  followed by one short justification sentence on the next line:\n"
             "  • Subject Topic Match: <X>/40\n"
+            "  <one sentence justifying this score>\n"
             "  • Terminology & Concept Density: <X>/30\n"
+            "  <one sentence justifying this score>\n"
             "  • Educational Resource Quality: <X>/20\n"
+            "  <one sentence justifying this score>\n"
             "  • Content Completeness & Structure: <X>/10\n"
+            "  <one sentence justifying this score>\n"
             "  Total Relevance Score: <X>/100\n\n"
             "  Explanation:\n"
             "  <Detailed explanation paragraph in English>\n"

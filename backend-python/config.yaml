@@ -1,4 +1,4 @@
-﻿app:
+app:
   name: AI Study Hub Python RAG API
   environment: local
 
@@ -9,7 +9,7 @@ rag:
 
 llm:
   provider: gemini
-  model: gemini-2.5-flash
+  model: gemini-3.6-flash
 
 vector_db:
   provider: pending
